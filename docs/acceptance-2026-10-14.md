@@ -169,3 +169,18 @@ model_test     -> ...\model_test\model_test.p
 - `model_test` 需要 Simulink Test（本机已装）与 Gherkin 规格文件，建议先加载 `testing-simulink-models` 技能。
 - 直连 GitHub 不稳定时需在设置里开启「允许镜像下载」（默认关闭，开启后仅在直连失败时启用）。
 - `skillGroups` 留空时默认注册 6 组共 32 个技能，以免 201 个技能淹没模型上下文；需要更多请显式填写组名。
+
+---
+
+# 追加验收：0.2.0「打开 MATLAB」按钮
+
+**被测版本**：dsh-matlab-mcp `0.2.0`（commit `38998bf`，tag `v0.2.0`）
+
+| # | 验收项 | 证据 |
+|---|---|---|
+| J1 | 按钮出现在**聊天主界面** | 用户重启后确认：会话标题栏出现「打开 MATLAB」按钮（注册位 `conversation.session.header.actions`，list / session 作用域） |
+| J2 | 点击真的打开 MATLAB | 重启后进程表出现新的 `MATLAB`（15:17:22）+ 5 个 `matlabwindowhelper`（桌面窗口），时间晚于插件挂载（15:16:59）；`scripts/open-matlab.ts` 亦实测 detached 启动后 3 秒内出现新 MATLAB 进程 |
+| J3 | 不误伤用户窗口 | 同一时刻 `agentSessionPids()` 返回 **(none)** —— 按钮打开的 MATLAB **不属于**插件清理范围；插件卸载/退出只关它自己启动的会话，不会关掉你的窗口 |
+| J4 | 会话模式语义 | 单测：`new` → `[]`（独立窗口）；`auto`/`existing` → `['-r','shareMATLABSession']`（共享会话：MCP 服务器连到同一个 MATLAB，你能在窗口里看 Agent 干活） |
+| J5 | 静态质量 | `pnpm check`：typecheck 0 错、6 套测试全绿（含新增 3 例）、build 通过 |
+| J6 | 路由 | 新增 `POST /api/dsh-matlab-mcp/open-matlab`，与 `/status` `/setup` `/test` `/reconnect` 同样受 loopback + 同源校验 |

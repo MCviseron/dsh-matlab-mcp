@@ -1,8 +1,9 @@
-# CI: the committed build output must stay in sync with `src/`.
+# CI: the committed build output must stay in sync with `src/`, and it must be
+# loadable exactly the way DSH loads it.
 #
 # `lib/` is committed on purpose — DSH links this plugin by path, so a fresh
 # clone must be loadable without running a build. That only stays honest if a
-# stale `lib/` fails here.
+# stale or broken `lib/` fails here.
 name: check
 
 on:
@@ -38,3 +39,17 @@ jobs:
             echo "::error::lib/index.js still imports @deepseek-ai/* — a fresh clone would fail to import."
             exit 1
           fi
+      - name: inlined CJS dependencies must have their globals
+        run: |
+          # Bundling a CJS dependency into ESM rewrites its require() into a shim
+          # that throws "Dynamic require of ... is not supported" unless the
+          # bundle defines `require` itself. This broke plugin loading once.
+          for token in createRequire import.meta.url __dirname __filename; do
+            grep -q "$token" lib/index.js || {
+              echo "::error::lib/index.js is missing '$token' — inlined CJS dependencies will throw at import time."
+              exit 1
+            }
+          done
+      - name: the host bundle must import cleanly
+        run: |
+          node -e "import('./lib/index.js').then(m => { if (typeof m.apply !== 'function' || typeof m.inject === 'undefined') throw new Error('plugin exports missing'); console.log('import ok:', Object.keys(m).join(',')) })"

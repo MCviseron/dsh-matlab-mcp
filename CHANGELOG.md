@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.1] - 2026-10-14
+
+### 修复
+
+- **内联版在 DSH 里加载失败（`matlab-mcp (dsh-matlab-mcp): failed to import`）**：
+  - **现象**：0.3.0 的 `lib/index.js` 在 `node -e`、DSH 自带 Node、Electron-as-Node 三种独立进程里都能 import，但 DSH 启动时该 entry 的 `fiber` 始终是 `undefined`（`dsh-app-boot` 把 `fiber === undefined` 归类为 `failed to import`，真实异常只打到控制台）。
+  - **定位**：把 DSH 宿主的 Electron 进程当作测试环境（`run_code` 就运行在其中），用与加载器相同的 `await import(file://…)` 复现出真实异常：
+    `Error: Dynamic require of "child_process" is not supported at lib/index.js:11:9`（栈上是 `cross-spawn` ← MCP SDK）。
+  - **根因**：把 CJS 依赖内联进 ESM bundle 后，esbuild 会把它们的 `require('child_process')` 改写成 `__require` 垫片；ESM 里没有 `require` 绑定时该垫片直接抛错 —— 只有真正走到宿主加载路径才会触发。
+  - **修复**：`build.mjs` 给宿主 bundle 加 banner，用 `createRequire(import.meta.url)` 恢复 CJS 全局（`require` / `__filename` / `__dirname`）。
+  - **验证**：在宿主 Electron 进程内 `await import()` 成功，`resolveConfig` / `Config` / `buildLaunch` 均正常。
+- **CI 增补**：`inlined CJS dependencies must have their globals`（检查 banner 关键字）与 `the host bundle must import cleanly`（真实 import + 导出形状断言），防止同类问题再溜过去。
+
 ## [0.3.0] - 2026-10-14
 
 ### 变更
@@ -88,7 +101,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...HEAD
+[0.3.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...v0.2.0

@@ -15,6 +15,23 @@ import { mkdir, writeFile } from 'node:fs/promises'
  */
 const selfContained = []
 
+/**
+ * CJS dependencies inlined into the ESM bundle (the MCP SDK pulls `cross-spawn`)
+ * call `require()` at module scope. esbuild rewrites those into a `__require`
+ * shim that throws `Dynamic require of "child_process" is not supported` unless
+ * a `require` binding exists — verified failing inside the DSH host process,
+ * which is exactly what surfaced as `dsh-matlab-mcp: failed to import`.
+ * The banner restores the CJS globals in terms of `import.meta.url`.
+ */
+const cjsGlobals = [
+  "import { createRequire as __dshCreateRequire } from 'node:module';",
+  "import { fileURLToPath as __dshFileURLToPath } from 'node:url';",
+  "import { dirname as __dshDirname } from 'node:path';",
+  'const require = __dshCreateRequire(import.meta.url);',
+  'const __filename = __dshFileURLToPath(import.meta.url);',
+  'const __dirname = __dshDirname(__filename);',
+].join('\n')
+
 await mkdir('lib', { recursive: true })
 
 // Host half: one ESM bundle, dependencies inlined, built output committed so a
@@ -27,6 +44,7 @@ await build({
   platform: 'node',
   target: 'node22',
   external: selfContained,
+  banner: { js: cjsGlobals },
   sourcemap: false,
   logLevel: 'info',
 })

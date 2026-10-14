@@ -1,5 +1,5 @@
 import { build } from 'esbuild'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { mkdir, readFile, writeFile } from 'node:fs/promises'
 
 /**
  * The host bundle is **fully self-contained**: every runtime import is inlined
@@ -33,6 +33,23 @@ const cjsGlobals = [
 ].join('\n')
 
 await mkdir('lib', { recursive: true })
+
+/**
+ * esbuild annotates every inlined module with its PHYSICAL path, e.g.
+ *   // node_modules/.pnpm/@deepseek-ai+dsh-tools@0.1.5-rc.3_8f54d72f…/lib/index.js
+ * The `.pnpm` directory name embeds a peer-dependency hash that differs
+ * between machines and pnpm versions, so the committed bundle could never
+ * match a fresh build elsewhere (CI: "lib/ is stale"). Strip those comments:
+ * they leak build-machine paths and make the artifact non-reproducible.
+ */
+async function stripBuildPaths(file) {
+  const code = await readFile(file, 'utf8')
+  const cleaned = code.replace(/^\/\/ .*node_modules\/.*\n/gm, '')
+  if (cleaned !== code) await writeFile(file, cleaned, 'utf8')
+  const leftover = cleaned.match(/^\/\/ .*node_modules\/.*$/m)
+  if (leftover !== null) console.warn('  ⚠ build-path comment left in ' + file + ': ' + leftover[0])
+  return code.length - cleaned.length
+}
 
 // Host half: one ESM bundle, dependencies inlined, built output committed so a
 // fresh clone is loadable as-is.
@@ -95,4 +112,5 @@ const wrapped = [
 
 await writeFile('lib/client.js', wrapped, 'utf8')
 
-console.log('built lib/index.js and lib/client.js')
+const removed = await stripBuildPaths('lib/index.js') + await stripBuildPaths('lib/client.js')
+console.log('built lib/index.js and lib/client.js (stripped ' + removed + ' bytes of build-path comments)')

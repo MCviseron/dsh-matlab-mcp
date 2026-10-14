@@ -7,6 +7,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-10-15
+
+### 修复
+
+- **跨平台路径解析**（`pickMatlabRoot` / `findOnPath` / `isMatlabRoot` / `releaseRank`）：此前用**宿主平台**的 `path` 规则解析「属于另一个平台」的路径 —— Linux 上 POSIX 规则不认反斜杠，`C:\MATLAB\R2025b\bin\matlab.exe` 被归一成 `..`，CI(ubuntu) 的 `paths.test.ts` 因此失败；本机 Windows 恰好正确，掩盖了这个 bug。现在按 `platform` 参数选择 `win32` / `posix` 规则（该参数此前形同虚设）。
+- **构建产物跨机器不可复现**：esbuild 会把**内联模块的物理路径**写进产物注释（`// node_modules/.pnpm/@deepseek-ai+dsh-tools@0.1.5-rc.3_8f54…/lib/index.js`），而 `.pnpm` 目录名内嵌的 peer 依赖哈希因机器与 pnpm 版本而异 → 同一份源码在两台机器上构建出的 `lib/index.js` 字节不同，CI 的「lib 与全新构建一致」检查必然失败，也让产物泄露构建机路径。`build.mjs` 现在构建后剥离这类注释，并对残留发出警告。
+
+### 发布
+
+- `0.7.2` 由 **GitHub Actions 经 npm trusted publishing（OIDC）** 自动发布，无需 2FA 动态码，并携带 **SLSA provenance**（`dist.attestations`，发布者显示为 `GitHub Actions <npm-oidc-no-reply@github.com>`）。
+- CI 同时拆成 `typecheck` / `unit tests` / `build bundles` 三段具名步骤；失败时把日志尾部以 `::error::` 注解与 job summary 输出（Actions 原始日志需要鉴权，注解可用公开 API 读取）。
 ## [0.7.2] - 2026-10-15
 
 ### 发布
@@ -181,7 +192,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.2...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...HEAD
+[0.7.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.1...v0.7.0

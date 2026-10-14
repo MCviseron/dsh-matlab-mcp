@@ -75,11 +75,29 @@
 
 ## 安装
 
-### 1. 安装插件本体
+### 0. 新客户端：一条命令（推荐）
+
+```powershell
+git clone https://github.com/MCviseron/dsh-matlab-mcp.git D:\dsh-matlab-mcp
+cd D:\dsh-matlab-mcp
+node scripts/install.mjs          # 加 --dry-run 可先预演
+```
+
+它会：① `pnpm install`（`prepare` 顺带构建 `lib/index.js`）→ ② 在 `%DSH_HOME%` 建 `matlab-mcp-plugin` 联接指向仓库 → ③ 给每个存在的 profile 写 `dependencies` / `dsh.profile.bundles` / `cordis.patch.yml` → ④ 在 profile 里 `pnpm install`，**并修复所有失效的 `link:` 联接**（pnpm 对跨盘 `link:D:/...` 会生成无效联接，这会让整个 profile 的插件都加载失败）→ ⑤ 打印后续步骤。
+
+跑完**重启 DeepSeek Harness**，再做下面第 2 步的「一键安装运行时」。
+
+> ⚠️ 直接 `git clone` 后不加任何处理就挂进 profile 会报
+> `matlab-mcp (dsh-matlab-mcp): failed to import` —— 因为仓库按惯例不提交构建产物（`lib/` 被忽略），且插件从自己的 `node_modules` 解析 `@deepseek-ai/*`。跑一次安装器（或手动 `pnpm install && pnpm build`）即解决。
+
+### 1. 手动安装插件本体
 
 把本仓库链接进 DSH profile（以 Windows 为例）：
 
 ```powershell
+# 0) 先把依赖装好并构建出 lib/（否则 DSH 加载会 failed to import）
+pnpm install && pnpm build
+
 # 1) 在 DSH 主目录建一个指向本仓库的联接
 cmd /c mklink /J "$env:DSH_HOME\matlab-mcp-plugin" "D:\Program\DSH-Plugin-Class\dsh-matlab-mcp"
 
@@ -88,7 +106,7 @@ cmd /c mklink /J "$env:DSH_HOME\matlab-mcp-plugin" "D:\Program\DSH-Plugin-Class\
 #    "dsh.profile.bundles": [ ..., "dsh-matlab-mcp" ]
 
 # 3) 在 profile 的 cordis.patch.yml 里加一行（见下）
-# 4) 安装链接
+# 4) 安装链接（之后若发现某些插件的 node_modules 联接失效，用 mklink /J 逐个修复）
 cd "$env:DSH_HOME\profiles\web"; pnpm install
 ```
 
@@ -178,6 +196,8 @@ Agent 会自动：先 `detect_matlab_toolboxes` 探测 → 需要时加载对应
 | 现象 | 原因与处理 |
 |---|---|
 | 错误码 `MIRROR_DISABLED` | 直连 GitHub 失败且镜像未开启。设置里打开「允许镜像下载」后重试 |
+| 启动日志：`matlab-mcp (dsh-matlab-mcp): failed to import` | 插件入口加载失败。最常见原因：**仓库没有构建产物**（`lib/index.js` 不存在）或**依赖没装**（`node_modules` 缺失）。在该仓库目录跑 `pnpm install && pnpm build`，或直接跑 `node scripts/install.mjs`。另一可能是 profile 里的联接失效（见下一条） |
+| 启动日志：多个插件同时 `failed to activate` / `failed to import` | profile 的 `node_modules` 里 `link:` 联接坏了（pnpm 对 `link:D:/...` 跨盘路径会生成无效联接，指向 `C:\...\profiles\<p>\D:\...`）。用 `mklink /J <profile>\node_modules\<插件名> <真实目录>` 逐个修复，或直接重跑 `node scripts/install.mjs`（它会统一修复） |
 | `not-provisioned` / 没有 `mcp__matlab__*` 工具 | 还没安装运行时。点设置卡「一键安装 / 修复」 |
 | 首次调用很慢（20–45 秒） | MATLAB 冷启动，属正常；之后再调用是秒级 |
 | 工具调用超时 | 调大 `toolCallTimeoutMs`，或把长任务改成写脚本 + 轮询结果文件 |

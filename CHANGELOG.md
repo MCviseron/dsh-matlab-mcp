@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-10-14
+
+### 新增
+
+- **新客户端一键安装器 `scripts/install.mjs`**：`git clone` 后在仓库里跑 `node scripts/install.mjs` 即可完成全部接线 ——
+  ① 仓库内 `pnpm install`（`prepare` 顺带构建 `lib/index.js`）；
+  ② 在 `%DSH_HOME%` 建 `matlab-mcp-plugin` 联接指向仓库（同盘路径，规避 pnpm 跨盘 `link:` 问题）；
+  ③ 给每个存在的 profile 写 `dependencies` / `dsh.profile.bundles` / `cordis.patch.yml`；
+  ④ 在 profile 内 `pnpm install`，并**统一修复所有失效的 `link:` 联接**（含其它本地插件）；
+  ⑤ 打印后续步骤。支持 `--dry-run` / `--profile <name>` / `--skip-profile-install`，`pnpm` 缺失时给出 DSH 自带 pnpm 的用法。
+
+### 修复
+
+- **新客户端启动报 `matlab-mcp (dsh-matlab-mcp): failed to import`**：根因是仓库按惯例不提交构建产物（`lib/` 被 `.gitignore` 排除）且插件从自身 `node_modules` 解析 `@deepseek-ai/*`，全新克隆后两者都不存在。安装器与文档（README「安装」第 0 节 + 排障表）现在明确覆盖这一路径。
+
 ## [0.2.0] - 2026-10-14
 
 ### 新增
@@ -62,6 +77,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MCviseron/dsh-matlab-mcp/releases/tag/v0.1.0

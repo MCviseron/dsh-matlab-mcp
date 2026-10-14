@@ -5,9 +5,18 @@
  */
 import { existsSync, readdirSync, statSync } from 'node:fs'
 import { homedir } from 'node:os'
-import { delimiter, join } from 'node:path'
+import { delimiter, join, posix, win32 } from 'node:path'
 
 /** DSH config root; mirrors `@deepseek-ai/dsh-skill-filesystem`'s default. */
+/**
+ * Path rules for the platform a path *belongs to* — not the host running this
+ * code. A Windows MATLAB root must be split with win32 rules even in CI on
+ * Linux, otherwise `dirname`/`join` treat the whole path as one segment.
+ */
+function pathApi(platform: string): typeof win32 {
+  return platform === 'win32' ? win32 : posix
+}
+
 export function dshHome(): string {
   const fromEnv = process.env.DSH_HOME
   return fromEnv !== undefined && fromEnv !== '' ? fromEnv : join(homedir(), '.dsh')
@@ -87,7 +96,7 @@ export function matlabSearchDirs(platform: string = process.platform, env: NodeJ
 /** Whether one directory is a MATLAB installation root (contains `<root>/bin/matlab[.exe]`). */
 export function isMatlabRoot(dir: string, platform: string = process.platform): boolean {
   const exe = platform === 'win32' ? 'matlab.exe' : 'matlab'
-  return existsSync(join(dir, 'bin', exe))
+  return existsSync(pathApi(platform).join(dir, 'bin', exe))
 }
 
 /** Parse a release directory name into a sortable rank (`R2025b`/`2025b` -> 20252). */
@@ -121,15 +130,16 @@ export function listMatlabRoots(dirs: readonly string[] = matlabSearchDirs()): s
       }
     }
   }
-  return found.sort((left, right) => releaseRank(join(right).split(/[\\/]/).pop() ?? '') - releaseRank(join(left).split(/[\\/]/).pop() ?? ''))
+  return found.sort((left, right) => releaseRank(right.split(/[\\/]/).pop() ?? '') - releaseRank(left.split(/[\\/]/).pop() ?? ''))
 }
 
 /** First `matlab`/`matlab.exe` reachable through a PATH-style string. */
-export function findOnPath(pathValue: string | undefined, exeName: string): string | undefined {
+export function findOnPath(pathValue: string | undefined, exeName: string, platform: string = process.platform): string | undefined {
   if (pathValue === undefined || pathValue === '') return undefined
-  for (const part of pathValue.split(delimiter)) {
+  const api = pathApi(platform)
+  for (const part of pathValue.split(api.delimiter)) {
     if (part === '') continue
-    const candidate = join(part, exeName)
+    const candidate = api.join(part, exeName)
     if (existsSync(candidate)) return candidate
   }
   return undefined
@@ -154,9 +164,9 @@ export function pickMatlabRoot(options: {
     releaseRank(right.split(/[\\/]/).pop() ?? '') - releaseRank(left.split(/[\\/]/).pop() ?? ''))
   if (available.length > 0) return available[0]
   const onPath = options.onPath === undefined
-    ? findOnPath(process.env.PATH, platform === 'win32' ? 'matlab.exe' : 'matlab')
+    ? findOnPath(process.env.PATH, platform === 'win32' ? 'matlab.exe' : 'matlab', platform)
     : (options.onPath.trim() === '' ? undefined : options.onPath)
   if (onPath === undefined) return undefined
-  // `<root>/bin/matlab.exe` -> `<root>`
-  return join(onPath, '..', '..')
+  // `<root>/bin/matlab.exe` -> `<root>`, using the rules of that platform.
+  return pathApi(platform).join(onPath, '..', '..')
 }

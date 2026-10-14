@@ -32,6 +32,8 @@ jobs:
           if ! git diff --quiet -- lib; then
             echo "::error::lib/ is stale — run 'pnpm build' and commit the result."
             git --no-pager diff --stat -- lib
+            git --no-pager diff -- lib | tail -c 2200 > /tmp/libdiff.txt
+            echo "::error title=lib diff::$(sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\n/%0A/g' /tmp/libdiff.txt)"
             exit 1
           fi
       - name: the host bundle must be self-contained

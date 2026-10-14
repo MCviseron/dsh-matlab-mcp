@@ -204,3 +204,49 @@ model_test     -> ...\model_test\model_test.p
 **教训**：「独立进程能 `import`」≠「宿主加载器能 `import`」。此后所有与加载相关的验证都放在宿主进程内（`run_code`）执行。
 
 **版本提示**：`v0.3.0` 是已知有问题的版本（能 import 但宿主加载失败），新客户端请使用 `main` / `v0.3.1` 及以上。
+
+---
+
+# 追加验收：0.4.0 安装崩溃修复（L）与镜像改进（M）
+
+**被测版本**：`0.4.0`（commit `b926a00`，tag `v0.4.0`）
+
+## L. 严重缺陷：点「一键安装 / 修复」后客户端崩溃
+
+**现象**（另一台新机器 `C:\Users\shang` 的崩溃日志 `crash-2026-10-14T09-48-37-929Z-host.log`）：
+
+```
+dsh: fatal uncaught exception: Error: spawn C:\Users\shang\.dsh\matlab-mcp\bin\matlab-mcp-server-windows-x64.exe ENOENT
+  errno: -4058, code: 'ENOENT', syscall: 'spawn <exe>', path: '<exe>'
+    at ChildProcess._handle.onexit → onErrorNT → app.asar/lib/main.js:3724
+```
+
+**关键取证**：用户指出「那个应用程序存在啊」—— 正确，**`ENOENT` 不等于文件不存在**。libuv 在 `cwd` 不存在时同样报 `spawn <exe> ENOENT`。本机对照实验（同一个真实存在的 exe）：
+
+| 条件 | 结果 |
+|---|---|
+| `cwd` = 存在的目录 | ✓ spawned ok |
+| `cwd` = **不存在的目录** | ✗ `ENOENT | syscall=spawn <exe>`，与崩溃日志逐字一致 |
+| 不传 `cwd` | ✓ spawned ok |
+
+**根因**：挂载配置 `cwd = <DSH_HOME>\matlab-mcp\workspace`，全新机器上该目录从未被创建（一键安装只建了缓存根与 `logs/`）。时间线：启动时还没有二进制 → 不挂载（安全）→ 点安装 → 二进制就位 → 路由 `reconnect()` → 用不存在的 `cwd` spawn → 未捕获异常 → 宿主退出。
+
+| # | 修复后验证 | 结果 |
+|---|---|---|
+| L1 | 用一个全新不存在的 working folder 调 `buildLaunch` | cwd 被自动创建 —— `构建配置后 cwd 是否存在: true`（旧行为为 false，即崩溃点） |
+| L2 | 用 `buildLaunch` 产出的 cwd spawn 真实二进制 | `✓ spawned ok` |
+| L3 | 对照：手工传不存在的 cwd | 仍复现 `✗ ENOENT`（证明机制与修复的针对性） |
+| L4 | 静态质量 | `pnpm check`：typecheck 0 错、6 套测试全绿、build 通过 |
+| L5 | 其余防护 | 挂载前 `--version` 预检、`ctx.inject` 回调内现算配置、`probeMcp` 补 `child.on('error')`、下载暂存校验后原子换入、`ensureBinary` 不再先删后下 |
+
+**上游问题**：崩溃本身是 DSH 侧 `dsh-mcp-client` 的健壮性缺陷 —— 子进程 spawn 失败未被捕获即终止宿主。插件已从自身侧消除可预见的触发条件，仍建议向上游反馈。
+
+## M. 镜像改进（实测驱动）
+
+| # | 检查 | 结果 |
+|---|---|---|
+| M1 | 开/关梯子两轮实测 | 关梯子：`gh-proxy.com` 2.53 MB/s、codeload **9.51 MB/s**、直连 0.21 MB/s、`ghproxy.net` 0.03 MB/s、`gh.llkk.cc` 超时；开梯子：gh-proxy.com 0.78 MB/s、gh.llkk.cc 1.18 MB/s、ghproxy.net 不通。其余候选（kkgithub/bgithub/moeyy/ddlc/ghproxy.cc/hub.\*.cf）全部不通 |
+| M2 | 多镜像与模板 | 单测覆盖 `{url}` 前缀式、`{path}` 换主机式（含斜杠归一）、老式纯前缀、列表解析与去重、`orderBySpeed` |
+| M3 | 镜像优先策略 | `downloadPlan(url, {allowMirror:true})` → `[镜像1, 镜像2, 镜像3, 直连]`（单测） |
+| M4 | 活体测速（新路由 + 设置卡按钮） | `gh-proxy.com 2.71 MB/s / TTFB 998 ms`、`ghproxy.net 0.02 MB/s`、`gh.llkk.cc timeout` → 排序把 gh-proxy.com 排到第一 ✅ |
+| M5 | 技能仓走 zipball | 开启镜像时优先 codeload zipball（实测 9.5 MB/s，40 MB ≈ 5 秒），`git clone` 退居兜底；解压成功后才切换目录，失败不会毁掉已有技能仓 |

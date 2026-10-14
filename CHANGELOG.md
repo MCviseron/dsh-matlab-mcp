@@ -7,6 +7,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.1] - 2026-10-14
+
+### 修复
+
+- **`proxy-config.mjs` 在 IP 场景不可用**：`--host` 给 IP 时原来仍生成 `listen 443 ssl` + 证书占位符，而 IP 一般拿不到公共 CA 证书（实测 `dl.159.75.130.207` 这类「前缀+IP」连 DNS 都解析不了）。现在按主机名自动选择：IP → `--scheme http`（`listen 80`，不生成 ssl 指令）并给出提示；域名 → HTTPS。新增 `--scheme` / `--port` 显式覆盖。
+- **反代下 19.5 MB 二进制缓存永远 MISS**：release 资产的最终 URL 带**会轮换的签名串**（`?sp=…&se=…&sig=…`），而 nginx 默认把整个 request URI 计入 cache key。生成配置现在给 `/mp-assets/` 指定 `proxy_cache_key "$scheme$request_method$host$uri"`（仅按路径），并加 `proxy_read_timeout/send_timeout 300s`。
+- 生成文件的头部注释补充放置位置说明（Debian/Ubuntu 的 `conf.d` 已在 `http{}` 内；CentOS/宝塔注意 `server{}` 上下文）。
+
 ## [0.6.0] - 2026-10-14
 
 ### 新增
@@ -147,7 +155,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.1...HEAD
+[0.6.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...v0.4.0

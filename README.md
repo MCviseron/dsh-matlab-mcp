@@ -182,7 +182,10 @@ downloadMirror: "https://dl.你的域名/matlab-mirror{path},https://gh-proxy.co
 不想上传 38 MB？也可以让服务器**实时反代** GitHub 并缓存。生成配置：
 
 ```powershell
-node scripts/proxy-config.mjs --host dl.你的域名 --prefix mp --static matlab-static --static-dir /srv/matlab-assets
+# 有域名（推荐，可复用现有 HTTPS 证书）
+node scripts/proxy-config.mjs --host dl.你的域名 --prefix mp --static-dir /srv/matlab-assets
+# 只有 IP（自动切明文 HTTP，不生成 ssl 指令 —— IP 一般拿不到公共 CA 证书）
+node scripts/proxy-config.mjs --host 159.75.130.207 --prefix mp
 ```
 
 它会打印完整 nginx 片段 + 要粘贴进 DSH 的镜像行。**实测到的跳转链决定了配置必须覆盖三个上游**：
@@ -207,7 +210,8 @@ downloadMirror: "https://dl.你的域名/matlab-static{path},https://dl.你的�
 - 独立配置文件（如 `/etc/nginx/conf.d/matlab-proxy.conf`）+ `nginx -t && systemctl reload nginx`，不影响其它服务；
 - `proxy_cache_path` 那行放到 `http { }` 作用域；缓存上限用 `max_size` 控制（默认 2g）；
 - ⚠️ 配置里必须保留 `limit_except GET HEAD` 与 `client_max_body_size 1m` —— **不加就是开放代理**，会被刷流量甚至连累你的 IP 被限流；
-- 缓存命中看响应头 `X-Mirror-Cache: HIT`（配置里已加）：第一次回源、之后走缓存。
+- 缓存命中看响应头 `X-Mirror-Cache: HIT`（配置里已加）：第一次回源、之后走缓存；
+- ⚠️ **release 资产的 URL 带会轮换的签名串**（`?sp=…&se=…&sig=…`），nginx 默认用整个 URI 做 cache key → 每次都 MISS。生成的配置给 `/mp-assets/` 指定了 `proxy_cache_key "$scheme$request_method$host$uri"`（只看路径），否则那个 19.5 MB 的二进制等于没缓存。
 
 ### 完全离线：本地制品目录（可选）
 

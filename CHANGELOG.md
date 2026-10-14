@@ -7,6 +7,15 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.1] - 2026-10-14
+
+### 修复
+
+- **`deploy/proxy-config.mjs` 非默认端口漏端口**：`--port 8443` 时生成的 `proxy_redirect` 目标与 `downloadMirror` 行都不带端口（指向 80/443），客户端第一跳就会走进死路。现在引入 `authority`（默认端口省略、非默认端口补上），三处 `proxy_redirect`、镜像行与验证命令统一使用它。
+
+### 新增
+
+- **`deploy/DEPLOY.md`**：服务器部署详细流程 —— 现状勘察（含按发行版/宝塔/1Panel/Docker 判断配置目录）、备份、放文件、`nginx -t` + `reload`、本机 curl 判读表、安全组放行、插件填一行、回滚，以及**未备案决策树**（非标端口 / IP 直连 / 境外机器）。
 ## [0.7.0] - 2026-10-14
 
 ### 变更
@@ -163,7 +172,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.1...HEAD
+[0.7.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.0...v0.7.1
 [0.7.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...v0.6.0

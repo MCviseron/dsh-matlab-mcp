@@ -32,6 +32,10 @@ const host = flag('host', '你的域名')
 const isIp = /^\d{1,3}(\.\d{1,3}){3}$/.test(host)
 const scheme = flag('scheme', isIp ? 'http' : 'https')
 const port = flag('port', scheme === 'https' ? '443' : '80')
+// Non-default ports must appear in every generated URL (proxy_redirect targets and
+// the mirror line), otherwise a client would be redirected to port 80/443.
+const defaultPort = scheme === 'https' ? '443' : '80'
+const authority = port === defaultPort ? host : host + ':' + port
 const prefix = '/' + flag('prefix', 'mp').replace(/^\/+|\/+$/g, '') + '/'
 const staticPrefix = '/' + flag('static', 'matlab-static').replace(/^\/+|\/+$/g, '') + '/'
 const staticDir = flag('static-dir', '')
@@ -43,7 +47,7 @@ const trim = prefix.replace(/\/$/, '')
 
 const tls = scheme === 'https'
   ? `    listen ${port} ssl;\n    ssl_certificate     /path/to/fullchain.pem;      # 复用你现有证书\n    ssl_certificate_key /path/to/privkey.pem;`
-  : `    listen ${port};                                    # 明文 HTTP（IP 场景通常只能这样）`
+  : `    listen ${port};                                    # 明文 HTTP（IP 或未备案场景常用）`
 
 const staticLocation = staticDir === ''
   ? ''
@@ -104,9 +108,9 @@ ${isIp && tls ? '    # 注意：IP 地址一般拿不到公共 CA 证书 —— 
         add_header X-Mirror-Cache $upstream_cache_status always;
 
         # 关键：把跳转**留在代理内**，否则客户端会绕过你直连 GitHub CDN
-        proxy_redirect https://codeload.github.com/ ${scheme}://${host}${trim}-codeload/;
-        proxy_redirect https://release-assets.githubusercontent.com/ ${scheme}://${host}${trim}-assets/;
-        proxy_redirect https://objects.githubusercontent.com/ ${scheme}://${host}${trim}-objects/;
+        proxy_redirect https://codeload.github.com/ ${scheme}://${authority}${trim}-codeload/;
+        proxy_redirect https://release-assets.githubusercontent.com/ ${scheme}://${authority}${trim}-assets/;
+        proxy_redirect https://objects.githubusercontent.com/ ${scheme}://${authority}${trim}-objects/;
     }
 
     # ② zipball 跳到这里（codeload.github.com）
@@ -150,7 +154,7 @@ ${isIp && tls ? '    # 注意：IP 地址一般拿不到公共 CA 证书 —— 
 ${staticLocation}}
 `
 
-const base = `${scheme}://${host}`
+const base = `${scheme}://${authority}`
 const mirrorLine = staticDir === ''
   ? `${base}${prefix}{path}`
   : `${base}${staticPrefix}{path},${base}${prefix}{path}`

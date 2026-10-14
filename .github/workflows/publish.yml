@@ -46,13 +46,14 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
           registry-url: https://registry.npmjs.org
           cache: pnpm
 
-      # Trusted publishing needs an npm that speaks OIDC (>= 11.5).
+      # Trusted publishing (OIDC) and staged publishing both need a recent npm.
+      # npm 12 requires Node ^22.22.2 || ^24.15 || >=26, hence node-version 24 above.
       - name: Use a recent npm
-        run: npm install -g npm@latest
+        run: npm install -g npm@latest && npm --version
 
       - run: pnpm install --frozen-lockfile
       - run: pnpm check

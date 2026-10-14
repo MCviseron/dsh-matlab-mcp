@@ -38,6 +38,16 @@ export interface MatlabMcpStatusState {
   ready: boolean
 }
 
+/** One mirror's measured behaviour, as the Host reports it. */
+export interface MirrorSpeed {
+  template: string
+  url: string
+  ok: boolean
+  ttfbMs?: number
+  mbps?: number
+  note?: string
+}
+
 export interface MatlabMcpSettingsCardFace {
   hooks: {
     matlabMcpSettingsCard: SnapshotStore<MatlabMcpSettingsCardState>
@@ -49,6 +59,8 @@ export interface MatlabMcpSettingsCardFace {
   /** One-click install/repair; returns the tail of the provisioning log. */
   install(): Promise<string[]>
   refreshStatus(): Promise<MatlabMcpStatusState | undefined>
+  /** Probe the configured mirrors against a real artifact and rank them. */
+  testMirrors(): Promise<{ results: MirrorSpeed[]; ordered: string[] }>
   reconnect(): Promise<void>
 }
 
@@ -99,6 +111,7 @@ export class MatlabMcpSettingsCardController {
       testConnection: async (deep) => await this.testConnection(deep),
       install: async () => await this.install(),
       refreshStatus: async () => await this.refreshStatus(),
+      testMirrors: async () => await this.testMirrors(),
       reconnect: async () => { await this.reconnect() },
     }
   }
@@ -140,6 +153,12 @@ export class MatlabMcpSettingsCardController {
       throw new Error(logs.length === 0 ? detail : detail + '\n' + logs.slice(-6).join('\n'))
     }
     return body.logs ?? []
+  }
+
+  private async testMirrors(): Promise<{ results: MirrorSpeed[]; ordered: string[] }> {
+    const { response, body } = await postJson<{ ok?: boolean; error?: string; message?: string; results?: MirrorSpeed[]; ordered?: string[] }>('/api/dsh-matlab-mcp/mirrors/test', {})
+    if (!response.ok || body?.ok !== true) throw new Error(failureMessage(body, response.status))
+    return { results: body.results ?? [], ordered: body.ordered ?? [] }
   }
 
   private async refreshStatus(): Promise<MatlabMcpStatusState | undefined> {
@@ -307,10 +326,12 @@ export function MatlabMcpSettingsCard(props: MatlabMcpSettingsCardProps) {
   const state = props.useMatlabMcpSettingsCard(snapshot => snapshot)
   const [draft, setDraft] = useState<MatlabMcpSettings>({})
   const [seeded, setSeeded] = useState(false)
-  const [busy, setBusy] = useState<'save' | 'test' | 'deep' | 'setup' | 'reconnect' | undefined>()
+  const [busy, setBusy] = useState<'save' | 'test' | 'deep' | 'setup' | 'reconnect' | 'mirrors' | undefined>()
   const [notice, setNotice] = useState<{ kind: 'ok' | 'error'; text: string } | undefined>()
   const [status, setStatus] = useState<MatlabMcpStatusState | undefined>()
   const [statusLoading, setStatusLoading] = useState(true)
+  const [mirrors, setMirrors] = useState<MirrorSpeed[]>([])
+  const [mirrorOrder, setMirrorOrder] = useState<string[]>([])
 
   const loadStatus = async (): Promise<void> => {
     setStatusLoading(true)
@@ -379,6 +400,26 @@ export function MatlabMcpSettingsCard(props: MatlabMcpSettingsCardProps) {
     await props.reconnect()
     setNotice({ kind: 'ok', text: t('settings.setupOk') + (logs.length === 0 ? '' : ' — ' + logs.slice(-2).join(' | ')) })
     await loadStatus()
+  })
+
+  const onTestMirrors = (): Promise<void> => guard('mirrors', async () => {
+    await props.save(draft)
+    const measured = await props.testMirrors()
+    setMirrors(measured.results)
+    setMirrorOrder(measured.ordered)
+    const best = measured.results.filter(entry => entry.ok).sort((left, right) => (right.mbps ?? 0) - (left.mbps ?? 0))[0]
+    setNotice({ kind: 'ok', text: t('settings.mirrorTestOk') + (best === undefined ? '' : ' — ' + best.template + ' ' + (best.mbps ?? 0).toFixed(2) + ' MB/s') })
+  })
+
+  const onApplyFastestMirrors = (): Promise<void> => guard('save', async () => {
+    const ordered = mirrorOrder.length > 0
+      ? mirrorOrder
+      : mirrors.filter(entry => entry.ok).sort((left, right) => (right.mbps ?? 0) - (left.mbps ?? 0)).map(entry => entry.template)
+    if (ordered.length === 0) return
+    const next: MatlabMcpSettings = { ...draft, downloadMirror: ordered.join(',') }
+    setDraft(next)
+    await props.save(next)
+    setNotice({ kind: 'ok', text: t('settings.mirrorApplied') })
   })
 
   const onReconnect = (): Promise<void> => guard('reconnect', async () => {
@@ -464,6 +505,41 @@ export function MatlabMcpSettingsCard(props: MatlabMcpSettingsCardProps) {
         <NumberField label={t('settings.toolCallTimeoutMs')} hint={t('settings.toolCallTimeoutMsHint')} value={draft.toolCallTimeoutMs} disabled={disabled} onChange={(value) => { update('toolCallTimeoutMs', value) }} />
         <BooleanField label={t('settings.allowMirrorDownload')} hint={t('settings.allowMirrorDownloadHint')} value={draft.allowMirrorDownload ?? false} disabled={disabled} onChange={(value) => { update('allowMirrorDownload', value) }} />
         <TextField label={t('settings.downloadMirror')} hint={t('settings.downloadMirrorHint')} value={draft.downloadMirror} disabled={disabled} onChange={(value) => { update('downloadMirror', value) }} />
+        <Field label={t('settings.mirrorTest')} hint={t('settings.mirrorTestHint')}>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              disabled={disabled}
+              style={disabled ? { ...secondaryButtonStyle, ...disabledButtonStyle } : secondaryButtonStyle}
+              onClick={() => { void onTestMirrors() }}
+            >
+              {t(busy === 'mirrors' ? 'settings.mirrorTesting' : 'settings.mirrorTestRun')}
+            </button>
+            {mirrors.some(entry => entry.ok)
+              ? (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    style={disabled ? { ...secondaryButtonStyle, ...disabledButtonStyle } : secondaryButtonStyle}
+                    onClick={() => { void onApplyFastestMirrors() }}
+                  >
+                    {t('settings.mirrorApplyFastest')}
+                  </button>
+                )
+              : null}
+          </div>
+          {mirrors.length > 0
+            ? (
+                <pre style={preStyle}>
+                  {mirrors
+                    .map(entry => (entry.ok
+                      ? `${(entry.mbps ?? 0).toFixed(2)} MB/s  ${entry.ttfbMs === undefined ? '' : entry.ttfbMs + ' ms  '}${entry.template}`
+                      : `✗            ${entry.template}  (${entry.note ?? 'failed'})`))
+                    .join('\n')}
+                </pre>
+              )
+            : null}
+        </Field>
         <BooleanField label={t('settings.telemetry')} hint={t('settings.telemetryHint')} value={draft.telemetry ?? false} disabled={disabled} onChange={(value) => { update('telemetry', value) }} />
         <BooleanField label={t('settings.shutdownMatlabOnUnload')} hint={t('settings.shutdownMatlabOnUnloadHint')} value={draft.shutdownMatlabOnUnload ?? true} disabled={disabled} onChange={(value) => { update('shutdownMatlabOnUnload', value) }} />
       </div>

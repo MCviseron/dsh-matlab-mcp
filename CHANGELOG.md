@@ -7,6 +7,24 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-14
+
+### 修复
+
+- **严重：点「一键安装 / 修复」后 DSH 客户端崩溃**（`dsh: fatal uncaught exception: Error: spawn ...bin\matlab-mcp-server-windows-x64.exe ENOENT`）。
+  - **根因不是文件缺失**：libuv 在 **`cwd` 不存在**时同样报 `spawn <exe> ENOENT`（错误指向命令，实为 chdir 失败）。挂载配置的 `cwd` 指向 `<DSH_HOME>\matlab-mcp\workspace`，而全新机器上该目录从未被创建（一键安装只建了缓存根与 `logs/`）。新机器时间线：启动时还没有二进制 → 不挂载（安全）→ 点安装 → 二进制就位 → 路由 `reconnect()` → 用不存在的 `cwd` 启动 → 未捕获异常 → 宿主退出。
+  - **实测对照**：同一个真实存在的 exe，`cwd` 正常 → `spawned ok`；`cwd` 不存在 → `ENOENT`，与崩溃日志逐字一致。
+  - **修复（多层防护）**：① `buildLaunch` 构造启动配置时创建 `cwd` 与 `--log-folder`；② 挂载前用我们自己的 `execFile` 做 `--version` 预检，跑不起来的二进制不再交给 MCP 客户端，改为可操作报错；③ 挂载配置在 `ctx.inject(['tools'])` 回调内**现算**，压掉「检查存在」与「真正 spawn」之间的窗口；④ `probeMcp` 补上 `child.on('error')`（此前缺该监听，同样会变成未捕获异常）；⑤ 下载改为**暂存校验后再原子换入**（校验在 `.partial` 上做），失败只清理暂存文件；`ensureBinary` 不再「先删后下」，也不再对下载后跑不起来的二进制返回成功。
+- **这是 DSH 侧 `dsh-mcp-client` 的健壮性缺陷**：子进程 `spawn` 失败以未捕获异常终止宿主。插件已从自身侧消除可预见的触发条件，仍建议向上游反馈「`ChildProcess` 的 `'error'` 事件必须被捕获」。
+
+### 变更
+
+- **多镜像 + 镜像优先**：`downloadMirror` 改为逗号分隔的模板列表（支持 `{url}` 前缀式、`{path}` 换主机式，兼容老的纯前缀写法）；开启镜像后**镜像优先、直连兜底**（实测直连 0.21 MB/s vs 镜像 2.5–9.5 MB/s）。
+- **默认镜像按实测重排**：`gh-proxy.com` → `gh.llkk.cc` → `ghproxy.net`（2026-10-14 关梯子实测：gh-proxy.com 2.53 MB/s / codeload 9.51 MB/s，ghproxy.net 0.03 MB/s，其余候选全部不通）。
+- **技能仓优先走 zipball**（开启镜像时）：codeload 经镜像实测 9.5 MB/s（40 MB ≈ 5 秒）；`git clone` 直连 GitHub、绕不过镜像，退居兜底。解压成功后才切换目录，失败不会毁掉已有技能仓。
+- **设置卡新增「镜像测速」**：对真实制品测 TTFB 与吞吐，并可一键「把最快的排到最前」——镜像存活期常常只有几小时，写死排序必然过期。
+- README 排障表补充：崩溃日志读法（`ENOENT` ≠ 文件不存在）与杀毒软件隔离的应对。
+
 ## [0.3.1] - 2026-10-14
 
 ### 修复
@@ -101,7 +119,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...v0.2.1

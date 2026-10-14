@@ -5,7 +5,7 @@
  * appear as `mcp__matlab__*`), provisions the vendor artifacts on demand, and
  * announces how the agent should behave around MATLAB.
  */
-import { existsSync } from 'node:fs'
+import { existsSync, mkdirSync } from 'node:fs'
 import type { Context } from '@deepseek-ai/cordis'
 import type {} from '@deepseek-ai/dsh-host-webserver'
 import type {} from '@deepseek-ai/dsh-system-prompt'
@@ -16,10 +16,11 @@ import z from '@deepseek-ai/schemastery'
 import { MATLAB_MCP_GUIDANCE, SECTION_ORDER } from './guidance.ts'
 import { makeMatlabMcpRoutes, makeMatlabMcpSettingsRoutes, type MatlabOpenResponse, type SettingsBridge } from './routes.ts'
 import { booleanField, enumField, numberField, stringField, unwrapConfig } from './config-values.ts'
-import { DEFAULT_MIRROR } from './download.ts'
-import { binaryPath, pickMatlabRoot } from './paths.ts'
+import { DEFAULT_MIRRORS_VALUE, measureMirrors, orderBySpeed, parseMirrors } from './download.ts'
+import { binaryAssetName, binaryPath, MATLAB_MCP_SERVER_RELEASE_BASE, pickMatlabRoot } from './paths.ts'
 import {
   inspectState,
+  probeServerVersion,
   resolvedWorkspace,
   runSetup,
   serverLogFolder,
@@ -89,7 +90,7 @@ export const Config = z.object({
   skillGroups: z.string().default('').volatile(),
   toolCallTimeoutMs: z.number().min(1000).max(1_800_000).default(600_000).volatile(),
   allowMirrorDownload: z.boolean().default(false).volatile(),
-  downloadMirror: z.string().default(DEFAULT_MIRROR).volatile(),
+  downloadMirror: z.string().default(DEFAULT_MIRRORS_VALUE).volatile(),
   telemetry: z.boolean().default(false).volatile(),
   shutdownMatlabOnUnload: z.boolean().default(true).volatile(),
 })
@@ -109,7 +110,7 @@ export function resolveConfig(config: MatlabMcpConfig | undefined): ResolvedConf
     skillGroups: stringField(source.skillGroups, '').split(',').map(part => part.trim()).filter(part => part !== ''),
     toolCallTimeoutMs: numberField(source.toolCallTimeoutMs, 600_000),
     allowMirrorDownload: booleanField(source.allowMirrorDownload, false),
-    downloadMirror: stringField(source.downloadMirror, DEFAULT_MIRROR).trim() || DEFAULT_MIRROR,
+    downloadMirror: stringField(source.downloadMirror, DEFAULT_MIRRORS_VALUE).trim() || DEFAULT_MIRRORS_VALUE,
     telemetry: booleanField(source.telemetry, false),
     shutdownMatlabOnUnload: booleanField(source.shutdownMatlabOnUnload, true),
   }
@@ -203,14 +204,20 @@ export interface LaunchDescription {
 export function buildLaunch(active: ResolvedConfig): LaunchDescription | undefined {
   const binary = binaryPath()
   if (!existsSync(binary)) return undefined
-  const workspace = resolvedWorkspace(active.initialWorkingFolder)
+  // libuv reports a **missing `cwd`** as `spawn <command> ENOENT` even when the
+  // command exists, and an unhandled spawn error terminates the DSH host. A
+  // fresh machine has no workspace directory yet, so both directories the
+  // launch depends on are created here — the spawn must never depend on the
+  // user having run something first.
+  const workspace = ensureDirectory(resolvedWorkspace(active.initialWorkingFolder))
+  const logFolder = ensureDirectory(serverLogFolder())
   const extensionFile = simulinkExtensionFile()
   const args = buildServerArgs({
     matlabRoot: pickMatlabRoot({ preferred: active.matlabRoot }),
     sessionMode: active.sessionMode,
     displayMode: active.displayMode,
     initialWorkingFolder: workspace,
-    logFolder: serverLogFolder(),
+    logFolder,
     extensionFiles: active.simulinkTools && existsSync(extensionFile) ? [extensionFile] : [],
     logLevel: 'info',
     telemetry: active.telemetry,
@@ -224,6 +231,17 @@ export function buildLaunch(active: ResolvedConfig): LaunchDescription | undefin
     toolCallTimeoutMs: active.toolCallTimeoutMs,
     env: buildServerEnv(),
   }
+}
+
+/** Create a directory if needed; a failure is left for the spawn/probe to report. */
+function ensureDirectory(dir: string): string {
+  try {
+    mkdirSync(dir, { recursive: true })
+  } catch {
+    // Reporting belongs to the caller: the spawn error or the mount-time probe
+    // surfaces the real cause, and this keeps `buildLaunch` non-throwing.
+  }
+  return dir
 }
 
 /** The exact object handed to `@deepseek-ai/dsh-mcp-client`. */
@@ -276,13 +294,30 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
         mountError = 'not-provisioned: ' + binaryPath()
         return
       }
+      // Pre-flight: a binary that exists but cannot run (truncated download, an
+      // antivirus quarantine, a half-replaced file) must never reach the MCP
+      // client — its child-spawn failure surfaces as an uncaught exception that
+      // terminates the DSH host. Our own probe captures errors instead.
+      const preflight = await probeServerVersion(launch.command)
+      if (preflight.version === undefined) {
+        mountError = 'binary-unusable: ' + (preflight.error ?? 'unknown')
+        return
+      }
       mountError = undefined
       mountCount += 1
       rememberSpawnBaseline()
       try {
         const fiber = ctx.inject(['tools'], (toolsCtx) => {
           try {
-            toolsCtx.plugin(mcpClient, clientConfigFor(launch))
+            // Recompute here: `ctx.inject` may invoke this later than the code
+            // above, so the command and cwd are re-validated as close to the
+            // spawn as this seam allows.
+            const fresh = buildLaunch(resolved())
+            if (fresh === undefined) {
+              mountError = 'not-provisioned: ' + binaryPath()
+              return
+            }
+            toolsCtx.plugin(mcpClient, clientConfigFor(fresh))
           } catch (error) {
             mountError = error instanceof Error ? error.message : String(error)
           }
@@ -326,8 +361,9 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
   const runSetupWithConfig = async (log: ProvisionLogger): Promise<SetupResult> => {
     const active = resolved()
     const result = await runSetup({
-      policy: { allowMirror: active.allowMirrorDownload, mirror: active.downloadMirror },
+      policy: { allowMirror: active.allowMirrorDownload, mirrors: active.downloadMirror },
       matlabRoot: active.matlabRoot === '' ? undefined : active.matlabRoot,
+      workingFolder: active.initialWorkingFolder === '' ? undefined : active.initialWorkingFolder,
       installToolboxInto: true,
       registerSimulink: active.simulinkTools,
       log,
@@ -374,6 +410,16 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
       setup: async (log: ProvisionLogger) => await runSetupWithConfig(log),
       probe,
       openMatlab,
+      measureMirrors: async () => {
+        const active = resolved()
+        const asset = binaryAssetName()
+        if (asset === undefined) throw new Error('此平台没有官方预编译产物 / no official build for this platform')
+        const results = await measureMirrors(
+          MATLAB_MCP_SERVER_RELEASE_BASE + '/' + asset,
+          parseMirrors(active.downloadMirror),
+        )
+        return { results, ordered: orderBySpeed(results) }
+      },
       reconnect: remountClient,
       diagnostics: () => ({ mountCount, mountError: mountError ?? null, skillGroups: skillCount, binary: binaryPath() }),
     }).map(route => ctx.webServer.register(route))

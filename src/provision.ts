@@ -12,7 +12,7 @@
  */
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
+import { mkdir, readdir, rename, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -140,8 +140,10 @@ export async function ensureBinary(policy: DownloadPolicy, log: ProvisionLogger,
       log('已存在 MCP 服务器 / MCP server present: v' + probe.version)
       return { path: target, version: probe.version, downloaded: false }
     }
-    log('已存在的二进制不可用，重新下载 / existing binary is unusable, re-downloading: ' + (probe.error ?? ''))
-    await rm(target, { force: true })
+    // Never delete a binary that might still be in use: the staged download
+    // swaps over it only after the new file proved usable, and a swap that
+    // cannot replace a running image fails loudly instead of leaving nothing.
+    log('已存在的二进制不可用，将用暂存下载替换 / existing binary unusable, replacing via staged download: ' + (probe.error ?? ''))
   }
   const url = MATLAB_MCP_SERVER_RELEASE_BASE + '/' + asset
   const result = await downloadWithFallback(url, target, policy, {
@@ -153,7 +155,14 @@ export async function ensureBinary(policy: DownloadPolicy, log: ProvisionLogger,
   })
   if (process.platform !== 'win32') await run('chmod', ['+x', target]).catch(() => {})
   const probe = await probeServerVersion(target)
-  log('已下载 MCP 服务器 / MCP server downloaded: ' + (probe.version ?? 'unknown version') + ' (' + result.bytes + ' bytes' + (result.mirrored ? ', via mirror' : '') + ')')
+  if (probe.version === undefined) {
+    throw new Error(
+      'MCP 服务器下载后无法运行 / the downloaded MCP server does not run: ' + (probe.error ?? 'unknown')
+      + '\n文件 / file: ' + target
+      + '\n常见原因：杀毒软件隔离了它（把该目录加入白名单后重试）/ usual cause: antivirus quarantine of the fresh executable.',
+    )
+  }
+  log('已下载 MCP 服务器 / MCP server downloaded: v' + probe.version + ' (' + result.bytes + ' bytes' + (result.mirrored ? ', via mirror' : '') + ')')
   return { path: target, version: probe.version, downloaded: true }
 }
 
@@ -201,7 +210,7 @@ async function cloneOrUpdate(repo: string, dir: string, log: ProvisionLogger, si
 
 async function zipFallback(repo: string, dir: string, policy: DownloadPolicy, log: ProvisionLogger, signal?: AbortSignal): Promise<void> {
   const archive = join(dir + '.zip')
-  log('git 不可用或失败，改用 zip 下载 / falling back to zip download')
+  log('下载技能仓压缩包 / downloading toolkit archive (zipball)')
   await downloadWithFallback(repo + '/archive/refs/heads/main.zip', archive, policy, { signal, log, validate: async (path) => {
     if (!await hasMagic(path, ZIP_MAGIC)) throw new Error('not a zip archive')
   } })
@@ -212,10 +221,15 @@ async function zipFallback(repo: string, dir: string, policy: DownloadPolicy, lo
   const entries = await readdir(staging)
   const root = entries.find(entry => entry.endsWith('-main')) ?? entries[0]
   if (root === undefined) throw new Error('archive contained no directory')
-  await rm(dir, { recursive: true, force: true })
-  const { rename } = await import('node:fs/promises')
+  // Swap only after the archive extracted successfully, and keep the previous
+  // checkout until the new one is in place: a failed toolkit fetch must never
+  // leave the cache without a usable skills-catalog.
+  const previous = dir + '.previous'
+  await rm(previous, { recursive: true, force: true })
+  if (existsSync(dir)) await rename(dir, previous)
   await rename(join(staging, root), dir)
   await rm(staging, { recursive: true, force: true })
+  await rm(previous, { recursive: true, force: true })
   await rm(archive, { force: true })
 }
 
@@ -227,15 +241,31 @@ export async function ensureToolkits(policy: DownloadPolicy, log: ProvisionLogge
     { name: 'simulink-agentic-toolkit', repo: SIMULINK_AGENTIC_TOOLKIT_REPO, dir: dirs.simulink },
   ]
   const usableGit = await gitAvailable()
+  // A codeload zipball through a mirror is ~10x the direct git-clone rate
+  // (measured 9.5 MB/s vs 0.15 MB/s on the target machine), so when the user
+  // enabled mirrors the zipball is the primary path and git clone is the
+  // fallback; without mirrors the order is reversed.
+  const order: Array<'zip' | 'git'> = policy.allowMirror ? ['zip', 'git'] : ['git', 'zip']
   const states: ToolkitState[] = []
   for (const entry of repos) {
-    try {
-      if (usableGit) await cloneOrUpdate(entry.repo, entry.dir, log, signal)
-      else await zipFallback(entry.repo, entry.dir, policy, log, signal)
-    } catch (error) {
-      log('git 路径失败，尝试 zip / git path failed, trying zip: ' + (error instanceof Error ? error.message : String(error)))
-      await zipFallback(entry.repo, entry.dir, policy, log, signal)
+    const failures: string[] = []
+    for (const step of order) {
+      try {
+        if (step === 'git') {
+          if (!usableGit) throw new Error('git 不可用 / git not available')
+          await cloneOrUpdate(entry.repo, entry.dir, log, signal)
+        } else {
+          await zipFallback(entry.repo, entry.dir, policy, log, signal)
+        }
+        failures.length = 0
+        break
+      } catch (error) {
+        const message = step + ': ' + (error instanceof Error ? error.message : String(error))
+        failures.push(message)
+        log('技能仓获取失败，尝试下一种方式 / toolkit fetch failed, trying the next way: ' + message)
+      }
     }
+    if (failures.length > 0) throw new Error('技能仓获取失败 / toolkit fetch failed: ' + failures.join(' | '))
     states.push({ ...entry, present: existsSync(join(entry.dir, 'skills-catalog')) })
   }
   return states
@@ -319,6 +349,8 @@ export async function registerSimulinkPaths(root: string, log: ProvisionLogger):
 export interface SetupOptions {
   policy: DownloadPolicy
   matlabRoot?: string | undefined
+  /** Working folder handed to MATLAB (created if missing). */
+  workingFolder?: string | undefined
   installToolboxInto: boolean
   registerSimulink: boolean
   log: ProvisionLogger
@@ -338,6 +370,10 @@ export async function runSetup(options: SetupOptions): Promise<SetupResult> {
   const { log } = options
   await mkdir(matlabCacheRoot(), { recursive: true })
   await mkdir(logsDir(), { recursive: true })
+  // The workspace and log folders are the launch's `cwd` and `--log-folder`:
+  // a missing `cwd` makes the spawn fail with a misleading `spawn <exe> ENOENT`
+  // that used to take the host process down, so they are created up front.
+  await mkdir(resolvedWorkspace(options.workingFolder), { recursive: true })
   const binary = await ensureBinary(options.policy, log, options.signal)
   const toolbox = await ensureToolbox(options.policy, log, options.signal)
   const toolkits = await ensureToolkits(options.policy, log, options.signal)

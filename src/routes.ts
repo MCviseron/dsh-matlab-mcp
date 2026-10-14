@@ -8,6 +8,7 @@ import { SettingsConflictError, type SettingsPathOp } from '@deepseek-ai/dsh-set
 import type { ResolvedConfig } from './index.ts'
 import { isLoopbackRequest } from './loopback.ts'
 import type { McpProbeResult } from './selftest.ts'
+import type { MirrorMeasurement } from './download.ts'
 import type { ProvisionState, SetupResult } from './provision.ts'
 
 export const MATLAB_MCP_API = {
@@ -17,6 +18,7 @@ export const MATLAB_MCP_API = {
   reconnect: '/api/dsh-matlab-mcp/reconnect',
   diagnostics: '/api/dsh-matlab-mcp/diagnostics',
   openMatlab: '/api/dsh-matlab-mcp/open-matlab',
+  mirrorsTest: '/api/dsh-matlab-mcp/mirrors/test',
   settingsDescribe: '/api/dsh-matlab-mcp/settings/describe',
   settingsMutate: '/api/dsh-matlab-mcp/settings/mutate',
 } as const
@@ -105,6 +107,8 @@ export interface MatlabMcpRouteDeps {
   setup: (log: (message: string) => void) => Promise<SetupResult>
   /** Speak MCP to the provisioned binary; `deep` also runs one MATLAB call. */
   probe: (deep: boolean) => Promise<McpProbeResult>
+  /** Probe every configured mirror against a real artifact and rank them. */
+  measureMirrors: () => Promise<{ results: MirrorMeasurement[]; ordered: string[] }>
   /** Dispose and recreate the MCP client mount. */
   reconnect: () => void
   diagnostics?: () => unknown
@@ -191,6 +195,21 @@ export function makeMatlabMcpRoutes(deps: MatlabMcpRouteDeps): WebRoute[] {
     },
   }
 
+  const mirrorsTest: WebRoute = {
+    kind: 'exact',
+    path: MATLAB_MCP_API.mirrorsTest,
+    handler: async (req, res): Promise<void> => {
+      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
+      if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
+      try {
+        const measured = await deps.measureMirrors()
+        json(res, 200, { ok: true, ...measured })
+      } catch (error) {
+        json(res, 500, { ok: false, error: 'mirror-test-failed', message: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }
+
   const reconnect: WebRoute = {
     kind: 'exact',
     path: MATLAB_MCP_API.reconnect,
@@ -208,7 +227,7 @@ export function makeMatlabMcpRoutes(deps: MatlabMcpRouteDeps): WebRoute[] {
     },
   }
 
-  return [status, setup, test, reconnect, diagnostics, openMatlab]
+  return [status, setup, test, reconnect, diagnostics, openMatlab, mirrorsTest]
 }
 
 export function makeMatlabMcpSettingsRoutes(settings: SettingsBridge): WebRoute[] {

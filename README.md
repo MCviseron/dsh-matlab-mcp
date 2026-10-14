@@ -154,7 +154,7 @@ cd "$env:DSH_HOME\profiles\web"; pnpm install
 | `skillGroups` | `""` | 逗号分隔的技能组；留空 = 默认组；`none` = 全部关闭 |
 | `toolCallTimeoutMs` | `600000` | 单次工具调用超时（10 分钟）；上限 30 分钟 |
 | `allowMirrorDownload` | `false` | **默认关闭**；直连失败时才用镜像下载官方制品 |
-| `downloadMirror` | `https://ghproxy.net/` | 镜像前缀，仅在上面的开关开启时生效 |
+| `downloadMirror` | `https://gh-proxy.com/{url},https://gh.llkk.cc/{url},https://ghproxy.net/{url}` | 镜像**列表**（逗号分隔，按顺序回退）。模板：`{url}` 前缀式、`{path}` 换主机式，老的纯前缀写法仍兼容。开启开关后镜像优先、直连兜底 |
 | `telemetry` | `false` | 关闭时传 `--disable-telemetry=true` 给 MCP 服务器 |
 | `shutdownMatlabOnUnload` | `true` | 插件卸载时关闭**由本插件启动**的 MATLAB（按父子进程归属判定） |
 
@@ -199,6 +199,8 @@ Agent 会自动：先 `detect_matlab_toolboxes` 探测 → 需要时加载对应
 | 错误码 `MIRROR_DISABLED` | 直连 GitHub 失败且镜像未开启。设置里打开「允许镜像下载」后重试 |
 | 启动日志：`matlab-mcp (dsh-matlab-mcp): failed to import` | 插件入口加载失败。① 你的仓库副本是 0.2.x 或更早（那时 `lib/` 不进仓库）→ `git pull` 到 0.3.0+（自带 `lib/`）；② profile 里的 `node_modules` 联接失效（见下一条）；③ 自己改过 `src/` 却没重新 `pnpm build`。跑 `node scripts/install.mjs` 可一次处理接线问题 |
 | 启动日志：多个插件同时 `failed to activate` / `failed to import` | profile 的 `node_modules` 里 `link:` 联接坏了（pnpm 对 `link:D:/...` 跨盘路径会生成无效联接，指向 `C:\...\profiles\<p>\D:\...`）。用 `mklink /J <profile>\node_modules\<插件名> <真实目录>` 逐个修复，或直接重跑 `node scripts/install.mjs`（它会统一修复） |
+| 客户端**直接崩溃**并生成 `crash-*-host.log`，里面有 `spawn ...matlab-mcp-server-windows-x64.exe ENOENT` | **`ENOENT` 不代表文件不存在** —— libuv 在 `cwd` 不存在时也报这个错。0.4.0 起插件会自动创建工作目录并在挂载前预检二进制；若你还在 0.3.x：升级，或先手工 `mkdir "%USERPROFILE%\.dsh\matlab-mcp\workspace"` 再重试。这也是 DSH 侧 `dsh-mcp-client` 未捕获 spawn 错误导致宿主退出的健壮性缺陷 |
+| 安装极慢或卡在下载 | 点设置卡「**镜像测速**」，再点「把最快的排到最前」。镜像存活期常常只有几小时（实测 `ghproxy.net` 数小时内从可用掉到 0.03 MB/s），默认列表会过期 |
 | `not-provisioned` / 没有 `mcp__matlab__*` 工具 | 还没安装运行时。点设置卡「一键安装 / 修复」 |
 | 首次调用很慢（20–45 秒） | MATLAB 冷启动，属正常；之后再调用是秒级 |
 | 工具调用超时 | 调大 `toolCallTimeoutMs`，或把长任务改成写脚本 + 轮询结果文件 |

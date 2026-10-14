@@ -63,13 +63,30 @@ export async function probeMcp(options: McpProbeOptions & { call?: { name: strin
 
   let buffer = ''
   let stderr = ''
-  const pending = new Map<number, (message: JsonRpcMessage) => void>()
+  const pending = new Map<number, { resolve: (message: JsonRpcMessage) => void; reject: (error: Error) => void }>()
   let nextId = 1
+  let spawnError: string | undefined
+
+  /**
+   * A failed spawn emits `'error'` asynchronously. Without a listener that is an
+   * uncaught exception — and inside the DSH host an uncaught exception ends the
+   * whole desktop app (observed as a crash while installing). Capture it, then
+   * fail every in-flight request instead of waiting for their timeouts.
+   */
+  child.on('error', (error: Error) => {
+    spawnError = error.message
+    for (const entry of pending.values()) entry.reject(new Error('spawn failed: ' + error.message))
+    pending.clear()
+  })
 
   const fail = (error: string): McpProbeResult => {
     child.kill()
     return { ok: false, error, elapsedMs: Date.now() - started, ...(stderr === '' ? {} : { stderr: stderr.slice(-2000) }) }
   }
+
+  /** A spawn that never produced a process is always a failure, never a timeout. */
+  const failIfSpawnError = (): McpProbeResult | undefined =>
+    spawnError === undefined ? undefined : fail('spawn failed: ' + spawnError)
 
   child.stdout.on('data', (chunk: Buffer) => {
     buffer += chunk.toString('utf8')
@@ -85,17 +102,28 @@ export async function probeMcp(options: McpProbeOptions & { call?: { name: strin
         continue
       }
       if (message.id !== undefined && pending.has(message.id)) {
-        pending.get(message.id)!(message)
+        const entry = pending.get(message.id)!
         pending.delete(message.id)
+        entry.resolve(message)
       }
     }
   })
   child.stderr.on('data', (chunk: Buffer) => { stderr += chunk.toString('utf8') })
 
   const rpc = (method: string, params: unknown): Promise<JsonRpcMessage> => new Promise((resolve, reject) => {
+    if (spawnError !== undefined) {
+      reject(new Error('spawn failed: ' + spawnError))
+      return
+    }
     const id = nextId++
-    const timer = setTimeout(() => reject(new Error('timeout waiting for ' + method)), timeoutMs)
-    pending.set(id, (message) => { clearTimeout(timer); resolve(message) })
+    const timer = setTimeout(() => {
+      pending.delete(id)
+      reject(new Error(spawnError === undefined ? 'timeout waiting for ' + method : 'spawn failed: ' + spawnError))
+    }, timeoutMs)
+    pending.set(id, {
+      resolve: (message) => { clearTimeout(timer); resolve(message) },
+      reject: (error) => { clearTimeout(timer); reject(error) },
+    })
     child.stdin.write(JSON.stringify({ jsonrpc: '2.0', id, method, params }) + '\n')
   })
 

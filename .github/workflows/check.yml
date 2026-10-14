@@ -1,0 +1,40 @@
+# CI: the committed build output must stay in sync with `src/`.
+#
+# `lib/` is committed on purpose — DSH links this plugin by path, so a fresh
+# clone must be loadable without running a build. That only stays honest if a
+# stale `lib/` fails here.
+name: check
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm build
+      - name: lib/ must match a fresh build
+        run: |
+          if ! git diff --quiet -- lib; then
+            echo "::error::lib/ is stale — run 'pnpm build' and commit the result."
+            git --no-pager diff --stat -- lib
+            exit 1
+          fi
+      - name: the host bundle must be self-contained
+        run: |
+          if grep -qE "from ['\"]@deepseek-ai/" lib/index.js; then
+            echo "::error::lib/index.js still imports @deepseek-ai/* — a fresh clone would fail to import."
+            exit 1
+          fi

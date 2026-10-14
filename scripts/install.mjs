@@ -1,26 +1,21 @@
 #!/usr/bin/env node
 /**
- * One-command onboarding for a NEW DSH client.
+ * One-command onboarding for a DSH client.
  *
- * Why this exists: the repository intentionally does not ship build output
- * (`lib/` is git-ignored) and the plugin resolves `@deepseek-ai/*` from its own
- * `node_modules`. On a fresh clone that means DSH reports
- * `matlab-mcp (dsh-matlab-mcp): failed to import` until dependencies are
- * installed and `lib/` is built. This script does the whole sequence, including
- * the profile wiring, and is safe to re-run.
+ * The plugin ships its build output (`lib/`) and inlines every runtime
+ * dependency, so a fresh clone is loadable as-is — this script only has to wire
+ * the clone into DSH:
+ *
+ *   1. Create the `<DSH_HOME>/matlab-mcp-plugin` junction pointing at this repo
+ *      (a same-drive path, because pnpm mishandles `link:D:/...` from a C: profile).
+ *   2. For every DSH profile that exists: add the dependency, add the bundle
+ *      entry, and add the plugin row to `cordis.patch.yml`.
+ *   3. Materialize the link — via `pnpm install` when pnpm is available, and in
+ *      any case by repairing every dangling `link:` junction directly (which
+ *      also heals the other local plugins a pnpm install would have broken).
  *
  * Usage:
  *   node scripts/install.mjs [--profile <name>] [--dry-run] [--skip-profile-install]
- *
- * Steps:
- *   1. `pnpm install` inside this repository (installs deps; `prepare` builds lib/).
- *   2. Create the `<DSH_HOME>/matlab-mcp-plugin` junction pointing at this repo —
- *      a same-drive path, because pnpm mishandles `link:D:/...` from a C: profile.
- *   3. For every DSH profile that exists: add the dependency, add the bundle
- *      entry, and add the plugin row to `cordis.patch.yml`.
- *   4. `pnpm install` in those profiles, then repair every `link:` junction that
- *      pnpm left dangling (it does this for cross-drive targets) — including the
- *      other local plugins, so the profile keeps working.
  */
 import { execFileSync } from 'node:child_process'
 import { existsSync, mkdirSync, readFileSync, readdirSync, symlinkSync, writeFileSync } from 'node:fs'
@@ -53,6 +48,7 @@ const CONFIG_ROW = [
 const argv = process.argv.slice(2)
 const dryRun = argv.includes('--dry-run')
 const skipProfileInstall = argv.includes('--skip-profile-install')
+const rebuild = argv.includes('--rebuild')
 const profileFlagIndex = argv.indexOf('--profile')
 const onlyProfile = profileFlagIndex >= 0 ? argv[profileFlagIndex + 1] : undefined
 
@@ -64,26 +60,20 @@ const pnpm = isWindows ? 'pnpm.cmd' : 'pnpm'
 const log = (message) => { console.log('[install] ' + message) }
 const fail = (message) => { console.error('[install] ERROR: ' + message); process.exit(1) }
 
-/** pnpm must exist before anything else runs; DSH ships one if the user has none. */
-function requirePnpm() {
-  if (dryRun) return
-  try {
-    execFileSync(pnpm, ['--version'], { stdio: 'ignore' })
-    return
-  } catch {
-    fail(
-      '未找到 pnpm。请安装：npm i -g pnpm；或使用 DSH 自带的 pnpm：\n'
-      + '  node "<DeepSeek Harness>/resources/runtime/pnpm/bin/pnpm.mjs" install\n'
-      + 'pnpm was not found. Install it (npm i -g pnpm) or use the pnpm bundled with DSH.',
-    )
-  }
-}
-requirePnpm()
-
 function run(command, args, cwd) {
   log('运行 / running: ' + command + ' ' + args.join(' ') + '   (cwd: ' + cwd + ')')
   if (dryRun) return
   execFileSync(command, args, { cwd, stdio: 'inherit', shell: false })
+}
+
+/** Whether pnpm is usable; it is optional now that the plugin is self-contained. */
+function hasPnpm() {
+  try {
+    execFileSync(pnpm, ['--version'], { stdio: 'ignore' })
+    return true
+  } catch {
+    return false
+  }
 }
 
 /** Create a directory junction (Windows) or symlink (elsewhere). */
@@ -95,14 +85,23 @@ function linkDirectory(linkPath, targetPath) {
   else symlinkSync(targetPath, linkPath, 'dir')
 }
 
-// ---------------------------------------------------------------- 1. build
+/** Resolve a `link:` spec to an absolute path. */
+function linkTarget(spec) {
+  return resolve(spec.slice('link:'.length))
+}
+
+// ------------------------------------------------- 1. build output (optional)
 log('仓库 / repository: ' + repoDir)
 if (!existsSync(join(repoDir, 'package.json'))) fail('这不是插件仓库目录 / not the plugin repository: ' + repoDir)
-run(pnpm, ['install'], repoDir)
-if (!dryRun && !existsSync(join(repoDir, 'lib', 'index.js'))) {
-  fail('lib/index.js 不存在：请运行 `pnpm build` 并查看报错 / lib/index.js is missing; run `pnpm build` and read the error')
+const libPath = join(repoDir, 'lib', 'index.js')
+if (rebuild || !existsSync(libPath)) {
+  if (!existsSync(libPath)) log('缺少 lib/index.js（应从仓库自带）；尝试从源码构建 / lib/index.js missing, building from source')
+  run(pnpm, ['install'], repoDir)
+  run(pnpm, ['build'], repoDir)
+  if (!dryRun && !existsSync(libPath)) fail('构建后仍缺少 lib/index.js / lib/index.js still missing after build')
+} else {
+  log('构建产物已随仓库提供 / build output shipped with the repo: lib/index.js')
 }
-log('构建产物 / build output: ' + (dryRun ? '(dry-run)' : 'lib/index.js OK'))
 
 // ------------------------------------------------------- 2. DSH home junction
 const homeLink = join(dshHome, JUNCTION_NAME)
@@ -118,12 +117,8 @@ const profiles = readdirSync(profilesRoot)
 if (profiles.length === 0) fail('没有可用的 profile / no usable profile under ' + profilesRoot)
 
 const homeLinkSpec = 'link:' + homeLink.split('\\').join('/')
-
-/** Resolve a `link:` spec to an absolute path the way pnpm records it. */
-function linkTarget(spec) {
-  const raw = spec.slice('link:'.length)
-  return resolve(raw)
-}
+const pnpmAvailable = dryRun ? true : hasPnpm()
+if (!pnpmAvailable) log('未找到 pnpm —— 将直接创建联接（插件已自包含，无需安装依赖）/ pnpm not found, linking directly')
 
 for (const name of profiles) {
   const dir = join(profilesRoot, name)
@@ -154,11 +149,11 @@ for (const name of profiles) {
     log('[' + name + '] cordis.patch.yml 已包含 matlab-mcp 行')
   }
 
-  if (!skipProfileInstall) run(pnpm, ['install'], dir)
+  if (pnpmAvailable && !skipProfileInstall) run(pnpm, ['install'], dir)
 
-  // Repair every dangling `link:` junction this install may have produced —
-  // pnpm resolves cross-drive links against the profile directory, which the
-  // OS then cannot follow. Re-linking keeps the whole profile loadable.
+  // Materialize (and heal) every `link:` junction. pnpm resolves cross-drive
+  // links against the profile directory, which the OS then cannot follow — the
+  // symptom is every local plugin failing to activate after a restart.
   const nodeModules = join(dir, 'node_modules')
   for (const [dep, spec] of Object.entries(pkg.dependencies ?? {})) {
     if (typeof spec !== 'string' || !spec.startsWith('link:')) continue
@@ -169,7 +164,7 @@ for (const name of profiles) {
       log('[' + name + '] 跳过 / skip ' + dep + '（目标不存在 ' + target + '）')
       continue
     }
-    log('[' + name + '] 修复失效联接 / repairing dangling link: ' + dep)
+    log('[' + name + '] 建立/修复联接 / linking: ' + dep)
     if (!dryRun && isWindows) {
       try { execFileSync('cmd', ['/c', 'rmdir', linked], { stdio: 'inherit' }) } catch { /* not a link */ }
       execFileSync('cmd', ['/c', 'mklink', '/J', linked, target], { stdio: 'inherit' })

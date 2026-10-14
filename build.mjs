@@ -1,20 +1,24 @@
 import { build } from 'esbuild'
 import { mkdir, writeFile } from 'node:fs/promises'
 
-const sharedExternal = [
-  '@deepseek-ai/*',
-  '@deepseek-ai/schemastery',
-  'react',
-  'react/*',
-  'react-dom',
-  'react-dom/*',
-]
+/**
+ * The host bundle is **fully self-contained**: every runtime import is inlined
+ * so a `git clone` + profile link works with no `pnpm install` in the plugin
+ * directory. That is deliberate — DSH links the plugin by path, so it never
+ * installs the plugin's dependencies for it, and a missing `node_modules` used
+ * to surface as `dsh-matlab-mcp: failed to import`.
+ *
+ * The DSH seams themselves are type-only imports (erased) or objects the host
+ * injects at runtime (`ctx`), so nothing needs to stay external for identity:
+ * the sibling plugin already runs its `@deepseek-ai/*` copies from its own
+ * `node_modules`, i.e. a separate copy from the host's is the normal case.
+ */
+const selfContained = []
 
 await mkdir('lib', { recursive: true })
 
-// Host half: one ESM bundle with local source inlined and all shared packages
-// external. There is no bridge child: the MCP server this plugin mounts is the
-// official MathWorks binary, spawned directly by @deepseek-ai/dsh-mcp-client.
+// Host half: one ESM bundle, dependencies inlined, built output committed so a
+// fresh clone is loadable as-is.
 await build({
   entryPoints: ['src/index.ts'],
   outfile: 'lib/index.js',
@@ -22,7 +26,7 @@ await build({
   format: 'esm',
   platform: 'node',
   target: 'node22',
-  external: sharedExternal,
+  external: selfContained,
   sourcemap: false,
   logLevel: 'info',
 })

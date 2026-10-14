@@ -7,6 +7,17 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-14
+
+### 变更
+
+- **插件改为「clone 下来就能用」**：
+  - 宿主 bundle 现在**内联全部运行时依赖**（`@deepseek-ai/dsh-mcp-client`、`dsh-settings`、`schemastery` 等），`lib/index.js` 只依赖 Node 内置模块 —— 实测把 `node_modules` 整个移走后仍能 `import` 成功（`IMPORT OK -> Config,MATLAB_MCP_SETTINGS_NAMESPACE,apply,buildLaunch,inject,resolveConfig`）。
+  - **`lib/` 随仓库提交**（移出 `.gitignore`），新客户端 `git clone` 后无需 `pnpm install` / `pnpm build` 即可加载。
+  - `scripts/install.mjs` 相应简化：不再强制安装依赖与构建，只做接线（建 `%DSH_HOME%` 联接 → 写 profile → 建立/修复 `node_modules` 联接），**没有 pnpm 也能装**；新增 `--rebuild` 供开发者从源码重建。
+- **CI（`.github/workflows/check.yml`）**：每次 push 跑 `typecheck` + 6 套测试 + `build`，并校验 ① `lib/` 与全新构建一致（不会悄悄过期）② `lib/index.js` 里不再残留 `@deepseek-ai/*` 外部 import（保证自包含）。
+- `dependencies` 清空（依赖已内联），相关包移入 `devDependencies`。
+
 ## [0.2.1] - 2026-10-14
 
 ### 新增
@@ -77,7 +88,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...v0.3.0
 [0.2.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MCviseron/dsh-matlab-mcp/releases/tag/v0.1.0

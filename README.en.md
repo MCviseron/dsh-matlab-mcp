@@ -51,17 +51,16 @@ you ──natural language──▶ DSH agent
 
 ## Install
 
-### New client: one command
+### Direct install (recommended, two commands)
 
 ```powershell
 git clone https://github.com/MCviseron/dsh-matlab-mcp.git D:\dsh-matlab-mcp
-cd D:\dsh-matlab-mcp
-node scripts/install.mjs        # add --dry-run to preview
+node D:\dsh-matlab-mcp\scripts\install.mjs     # add --dry-run to preview
 ```
 
-It installs the dependencies (which builds `lib/`), creates the `<DSH_HOME>/matlab-mcp-plugin` junction, wires every DSH profile (`dependencies`, `dsh.profile.bundles`, `cordis.patch.yml`), runs `pnpm install` in those profiles, and repairs any dangling `link:` junction (pnpm mishandles cross-drive `link:D:/...`, which otherwise makes *every* local plugin fail to load). Then restart DeepSeek Harness.
+**No `pnpm install`, no build step**: the repository ships `lib/` and the host bundle inlines every runtime dependency (`@deepseek-ai/dsh-mcp-client`, …), so only Node built-ins are needed at runtime. The installer just wires it up: creates the `<DSH_HOME>/matlab-mcp-plugin` junction, writes every profile's `dependencies` / `dsh.profile.bundles` / `cordis.patch.yml`, materializes (and repairs) the `node_modules` links — working with or without pnpm — and prints the next steps. Then restart DeepSeek Harness.
 
-> Cloning and linking without that step reports `matlab-mcp (dsh-matlab-mcp): failed to import`, because the repository does not ship build output and the plugin resolves `@deepseek-ai/*` from its own `node_modules`. Run the installer, or `pnpm install && pnpm build` manually.
+> CI (`.github/workflows/check.yml`) rebuilds on every push and fails when `lib/` is stale or when the bundle still imports `@deepseek-ai/*`, so the committed build output cannot silently drift.
 
 ```powershell
 # 1) link this repository into the DSH home

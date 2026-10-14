@@ -1,5 +1,7 @@
 # 发布流程（维护者）
 
+> 现状：推 tag 即由 GitHub Actions 经 **npm trusted publishing（OIDC）** 自动发布，带 SLSA provenance，无需 2FA 动态码。首次发布（0.7.2/0.7.3）已按此走通。
+
 > 面向仓库维护者。普通用户只需「安装」，见 [README](../README.md)。
 
 ## 一次发布：完整步骤
@@ -78,3 +80,34 @@ npx --yes npm@12 unpublish dsh-matlab-mcp@0.0.0-stage --registry=https://registr
 - `files` 只含 `lib/ src/ test/ docs/ README* CHANGELOG cordis.patch.yml` ——
   `deploy/`（服务器部署工具）与 `scripts/`（本地安装/验证脚本）**不进包**
 - `dependencies` 为空：bundle 自包含，安装即用、无需构建
+
+## 可复现构建（踩过的坑）
+
+`lib/` 是**提交进仓库**的构建产物，CI 会用「重新构建后 `git diff -- lib` 必须为空」来守卫。两个真实踩坑：
+
+1. **esbuild 会把内联模块的物理路径写进产物注释**：
+
+   ```js
+   // node_modules/.pnpm/@deepseek-ai+dsh-tools@0.1.5-rc.3_8f54d72f…/node_modules/@deepseek-ai/dsh-tools/lib/index.js
+   ```
+
+   `.pnpm` 目录名里的 peer 依赖哈希随**机器与 pnpm 版本**变化 → 同源码在两台机器上构建出的字节不同，
+   「lib 必须一致」必然失败，还泄露构建机路径。`build.mjs` 现在构建后剥离这类注释（约 19.5 KB / 228 行）。
+2. **平台相关的路径语义**：`pickMatlabRoot` / `findOnPath` / `isMatlabRoot` 曾用宿主平台的 `path` 规则解析
+   「属于另一平台」的路径 —— Linux 上 POSIX 规则不认反斜杠，Windows 路径被归一成 `..`。现在按 `platform`
+   参数选择 `win32` / `posix`。**教训：本机 Windows 全绿 ≠ CI(ubuntu) 全绿。**
+
+## 在拿不到 Actions 日志时定位 CI 失败
+
+Actions 的原始日志需要鉴权，但 **check-runs 的注解可以匿名读取**。因此 workflow 里：
+
+- 把门禁拆成具名步骤（`Typecheck` / `Unit tests` / `Build bundles`），jobs API 直接告诉你是哪一段失败；
+- 各段 `2>&1 | tee /tmp/<leg>.log`，失败时用 `::error title=…::<tail>` 输出注解（换行转义为 `%0A`），
+  并同时写入 `$GITHUB_STEP_SUMMARY`。
+
+读取方式（公开 API）：
+
+```bash
+curl -s "https://api.github.com/repos/<owner>/<repo>/commits/<sha>/check-runs" | grep -o '"id": [0-9]*'
+curl -s "https://api.github.com/repos/<owner>/<repo>/check-runs/<id>/annotations"
+```

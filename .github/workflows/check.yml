@@ -21,9 +21,12 @@ jobs:
           node-version: 22
           cache: pnpm
       - run: pnpm install --frozen-lockfile
-      - run: pnpm typecheck
-      - run: pnpm test
-      - run: pnpm build
+      - name: Typecheck
+        run: pnpm typecheck 2>&1 | tee /tmp/typecheck.log
+      - name: Unit tests
+        run: pnpm test 2>&1 | tee /tmp/test.log
+      - name: Build bundles
+        run: pnpm build 2>&1 | tee /tmp/build.log
       - name: lib/ must match a fresh build
         run: |
           if ! git diff --quiet -- lib; then
@@ -51,3 +54,16 @@ jobs:
       - name: the host bundle must import cleanly
         run: |
           node -e "import('./lib/index.js').then(m => { if (typeof m.apply !== 'function' || typeof m.inject === 'undefined') throw new Error('plugin exports missing'); console.log('import ok:', Object.keys(m).join(',')) })"
+
+      - name: Report the failing leg
+        if: failure()
+        run: |
+          for f in /tmp/typecheck.log /tmp/test.log /tmp/build.log; do
+            [ -f "$f" ] || continue
+            tail -c 1800 "$f" > /tmp/tail.txt
+            echo "::error title=$f::$(sed -e ':a' -e 'N' -e '$!ba' -e 's/%/%25/g' -e 's/\n/%0A/g' /tmp/tail.txt)"
+            echo "### $f" >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+            cat /tmp/tail.txt >> "$GITHUB_STEP_SUMMARY"
+            echo '```' >> "$GITHUB_STEP_SUMMARY"
+          done

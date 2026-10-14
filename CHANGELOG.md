@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.5.0] - 2026-10-14
+
+### 新增
+
+- **自建镜像工具 `scripts/mirror-assets.mjs`**：在一台网络好的机器上跑一次，产出可整体上传的静态目录树（按 GitHub 路径排布，因此一个 `{path}` 模板即可覆盖全部制品）、`mirror.json`（路径 + 字节数 + sha256）、`nginx.conf.example` 与 `README.txt`（上传/部署/验证清单）。
+  - 实测：4 个文件合计 **38.4 MB**（二进制 19.5 MB + 工具箱 0.06 MB + 两个 zipball 4.1/16.4 MB），经 `gh-proxy.com` 拉取 5.22 / 0.06 / 4.12 / 13.55 MB/s。
+  - 支持 `--via <模板>`：抓取时也可走镜像；`--out` / `--base-url` / `--asset` / `--force`。
+- **端到端验证**：本地起静态服务器模拟「用户自己的服务器」，在**隔离的 DSH_HOME** 里跑插件的真实供给流程 —— 二进制 `v0.14.0 (via mirror)`、工具箱 `via mirror`、两个技能仓均从该服务器下载，`ready: true`。
+- 文档新增「自建镜像」一节：静态模式（推荐）与反向代理模式的取舍，以及**开放代理风险**的明确警告（不得做成对全路径开放的 GitHub 代理）。
+
+### 说明
+
+- 静态模式对服务器零副作用：不新开端口、不访问外网、无缓存进程；磁盘占用即上表 38.4 MB，CPU/内存开销可忽略。
+- 许可提示：把 MathWorks 制品放到**自己的服务器供自己使用**属于私有使用；发布到公共 registry/公开站点则构成再分发，需遵守其许可证（保留版权与许可声明、仅配合 MathWorks 产品使用）。
+
 ## [0.4.0] - 2026-10-14
 
 ### 修复
@@ -119,7 +134,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...HEAD
+[0.5.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...v0.3.1
 [0.3.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.1...v0.3.0

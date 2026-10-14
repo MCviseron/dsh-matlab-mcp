@@ -1,6 +1,6 @@
 {
   "name": "dsh-matlab-mcp",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "description": "DeepSeek Harness (DSH) plugin — connects DSH to MATLAB and Simulink through the official MathWorks MATLAB MCP Server, injects MATLAB/Simulink Agentic Toolkit skills, and provisions everything with one click.",
   "license": "Apache-2.0",
   "author": {

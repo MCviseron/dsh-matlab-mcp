@@ -139,6 +139,44 @@ cd "$env:DSH_HOME\profiles\web"; pnpm install
 
 > 若直连 GitHub 失败，会返回 `MIRROR_DISABLED` 错误并提示你打开「允许镜像下载」，不会静默走第三方。
 
+## 自建镜像（推荐给国内多机部署）
+
+公共 GitHub 代理的存活期常常只有几小时（实测 `ghproxy.net` 数小时内从可用掉到 0.03 MB/s），最稳的做法是把制品放到**你自己的服务器**上。
+
+```powershell
+# 在一台网络好的机器上跑一次
+node scripts/mirror-assets.mjs --out D:\mirror --base-url https://dl.你的域名/matlab-mirror
+# 抓取慢时可走公共镜像：--via https://gh-proxy.com/{url}
+```
+
+产出 **38.4 MB**（二进制 19.5 MB + 工具箱 0.06 MB + 两个技能仓 zipball 4.1/16.4 MB）以及：
+
+| 产物 | 用途 |
+|---|---|
+| `matlab/...` 静态目录树 | 整体上传到服务器（按 GitHub 路径排布，一个 `{path}` 模板覆盖全部制品） |
+| `mirror.json` | 路径 + 字节数 + **sha256**，便于上传后核对 |
+| `nginx.conf.example` | 静态模式片段（含反向代理模式的**风险注释**） |
+| `README.txt` | 上传/部署/验证清单 |
+
+然后在插件设置里填一行（逗号分隔可多写，按顺序回退）：
+
+```yaml
+allowMirrorDownload: true
+downloadMirror: "https://dl.你的域名/matlab-mirror{path},https://gh-proxy.com/{url}"
+```
+
+**部署要点（对服务器上其它服务无影响）**
+
+- 挂在你现有 web 服务的**独立配置文件**里（如 `/etc/nginx/conf.d/matlab-mirror.conf`），用 `location /matlab-mirror/` 或子域名；**不需要新端口**；
+- 改完 `nginx -t && systemctl reload nginx`（**reload 而非 restart**，现有站点不中断）；
+- 静态模式**不访问外网、无缓存进程**，CPU/内存开销可忽略，磁盘占用 38.4 MB；
+- `.mltbx`/`.exe` 建议加 `default_type application/octet-stream`（nginx 无内置类型）；
+- ⚠️ **不要做成对全路径开放的 GitHub 反向代理**（`proxy_pass https://github.com/`）—— 那会变成人人可用的开放代理，被刷流量甚至连累你的 IP。要做就按示例注释只放行 `/matlab/` 前缀并限制 GET/HEAD 与体积。
+
+**已实测**：用本地静态服务器模拟你的服务器、在隔离的 `DSH_HOME` 里跑插件真实供给流程 —— 二进制 `v0.14.0 (via mirror)`、工具箱与两个技能仓全部从该服务器下载，`ready: true`。
+
+> 许可提示：放到**自己的服务器供自己使用**属私有使用；发布到公共 registry 或公开站点则构成再分发，需遵守 MathWorks 许可证（保留版权与许可声明、仅用于配合 MathWorks 产品）。
+
 ## 配置项
 
 | 字段 | 默认 | 说明 |

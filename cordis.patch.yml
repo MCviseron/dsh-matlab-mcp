@@ -1,0 +1,8 @@
+# dsh-matlab-mcp bundle patch: inserts the host+browser plugin row into the
+# web profile roster. The Host half provisions the official MathWorks MATLAB
+# MCP Server (binary + toolbox + agentic toolkits) and mounts it as an MCP
+# client under the `matlab` server name; the browser half renders the settings
+# card and drives the one-click installer.
+- insert:
+    - id: matlab-mcp
+      name: 'dsh-matlab-mcp'

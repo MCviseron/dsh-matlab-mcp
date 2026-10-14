@@ -7,9 +7,9 @@
  * is required: the tree mirrors the GitHub paths, so a single `{path}` template
  * covers every artifact.
  *
- *   node scripts/mirror-assets.mjs                       # writes ./mirror
- *   node scripts/mirror-assets.mjs --out D:\mirror --base-url https://dl.example.com/matlab-mirror
- *   node scripts/mirror-assets.mjs --via https://gh-proxy.com/{url}   # fetch through a mirror too
+ *   node deploy/mirror-assets.mjs                       # writes ./mirror
+ *   node deploy/mirror-assets.mjs --out D:\mirror --base-url https://dl.example.com/matlab-mirror
+ *   node deploy/mirror-assets.mjs --via https://gh-proxy.com/{url}   # fetch through a mirror too
  *
  * Produced:
  *   <out>/matlab/...                     static tree (upload as-is)
@@ -159,7 +159,7 @@ const README = `自建 MATLAB 制品镜像 — 使用说明
    - 静态模式不会让服务器访问外网，也不占用额外端口，对现有服务无影响。
    - 若改做反向代理，务必按 nginx.conf.example 里注释的范围收紧：
      仅 GET/HEAD、仅 /matlab/ 前缀、限制体积；开放代理会被滥用并可能连累你的 IP。
-   - 更新制品：重跑 scripts/mirror-assets.mjs，重新上传覆盖即可。
+   - 更新制品：重跑 deploy/mirror-assets.mjs，重新上传覆盖即可。
 `
 
 log('输出目录 / output: ' + outDir)

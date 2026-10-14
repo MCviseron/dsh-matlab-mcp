@@ -78,6 +78,10 @@ cd "$env:DSH_HOME\profiles\web"; pnpm install
 
 Then open **Settings → MATLAB / Simulink MCP** and press **Install / repair**. It downloads the MCP server binary into `$DSH_HOME/matlab-mcp/bin/`, installs the MATLAB toolbox, clones both toolkits, registers the Simulink toolkit path, and remounts the MCP client. Tools then appear as `mcp__matlab__*`.
 
+## Artifact sources
+
+The plugin downloads the MathWorks artifacts straight from GitHub by default. A mirror list (`downloadMirror`) and a local asset directory (`localAssetsDir`) are optional; both are documented in the configuration table below. **Server-side deployment tooling is not part of the plugin** — self-hosted static mirrors and nginx reverse-proxy config generation live in [`deploy/`](deploy/README.md).
+
 ## Configuration
 
 | Field | Default | Meaning |

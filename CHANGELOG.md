@@ -7,6 +7,14 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-10-14
+
+### 变更
+
+- **划清边界：服务器侧部署工具移出插件目录**。原先放在 `scripts/` 的 `mirror-assets.mjs`（建静态镜像）与 `proxy-config.mjs`（生成 nginx 反代配置）移到 [`deploy/`](deploy/README.md)，并配独立 README 说明「这不是插件的一部分、npm 包也不包含它」。
+  - `scripts/` 现在只剩插件侧内容：`install.mjs`（把插件装进 DSH）与各类验证探针。
+  - 插件 README 把原来大段的 nginx/备案/端口内容压成一小节「制品获取（镜像 / 本地目录）」：只保留插件自身需要配置的 `downloadMirror` / `localAssetsDir`，其余指向 `deploy/`。
+- 插件运行逻辑不变：这两个字段是插件「从哪取制品」的配置能力（默认关闭/空值），与制品如何部署到服务器上无关。
 ## [0.6.1] - 2026-10-14
 
 ### 修复
@@ -155,7 +163,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.1...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.1...v0.7.0
 [0.6.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.0...v0.6.1
 [0.6.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...v0.5.0

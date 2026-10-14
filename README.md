@@ -139,89 +139,18 @@ cd "$env:DSH_HOME\profiles\web"; pnpm install
 
 > 若直连 GitHub 失败，会返回 `MIRROR_DISABLED` 错误并提示你打开「允许镜像下载」，不会静默走第三方。
 
-## 自建镜像（推荐给国内多机部署）
+## 制品获取（镜像 / 本地目录）
 
-公共 GitHub 代理的存活期常常只有几小时（实测 `ghproxy.net` 数小时内从可用掉到 0.03 MB/s），最稳的做法是把制品放到**你自己的服务器**上。
-
-```powershell
-# 在一台网络好的机器上跑一次
-node scripts/mirror-assets.mjs --out D:\mirror --base-url https://dl.你的域名/matlab-mirror
-# 抓取慢时可走公共镜像：--via https://gh-proxy.com/{url}
-```
-
-产出 **38.4 MB**（二进制 19.5 MB + 工具箱 0.06 MB + 两个技能仓 zipball 4.1/16.4 MB）以及：
-
-| 产物 | 用途 |
-|---|---|
-| `matlab/...` 静态目录树 | 整体上传到服务器（按 GitHub 路径排布，一个 `{path}` 模板覆盖全部制品） |
-| `mirror.json` | 路径 + 字节数 + **sha256**，便于上传后核对 |
-| `nginx.conf.example` | 静态模式片段（含反向代理模式的**风险注释**） |
-| `README.txt` | 上传/部署/验证清单 |
-
-然后在插件设置里填一行（逗号分隔可多写，按顺序回退）：
+插件默认**直连 GitHub**；国内网络可配置镜像或本地制品目录（两者都可选，默认关闭）：
 
 ```yaml
 allowMirrorDownload: true
-downloadMirror: "https://dl.你的域名/matlab-mirror{path},https://gh-proxy.com/{url}"
+downloadMirror: "https://你的镜像/{path},https://gh-proxy.com/{url}"   # {path} 换主机式 / {url} 前缀式，逗号分隔按序回退
+localAssetsDir: "D:\matlab-mirror"                                   # 命中即直接复制、零网络请求（优先级：本地 → 镜像 → 直连）
 ```
 
-**部署要点（对服务器上其它服务无影响）**
-
-- 挂在你现有 web 服务的**独立配置文件**里（如 `/etc/nginx/conf.d/matlab-mirror.conf`），用 `location /matlab-mirror/` 或子域名；**不需要新端口**；
-- 改完 `nginx -t && systemctl reload nginx`（**reload 而非 restart**，现有站点不中断）；
-- 静态模式**不访问外网、无缓存进程**，CPU/内存开销可忽略，磁盘占用 38.4 MB；
-- `.mltbx`/`.exe` 建议加 `default_type application/octet-stream`（nginx 无内置类型）；
-- ⚠️ **不要做成对全路径开放的 GitHub 反向代理**（`proxy_pass https://github.com/`）—— 那会变成人人可用的开放代理，被刷流量甚至连累你的 IP。要做就按示例注释只放行 `/matlab/` 前缀并限制 GET/HEAD 与体积。
-
-**已实测**：用本地静态服务器模拟你的服务器、在隔离的 `DSH_HOME` 里跑插件真实供给流程 —— 二进制 `v0.14.0 (via mirror)`、工具箱与两个技能仓全部从该服务器下载，`ready: true`。
-
-> 许可提示：放到**自己的服务器供自己使用**属私有使用；发布到公共 registry 或公开站点则构成再分发，需遵守 MathWorks 许可证（保留版权与许可声明、仅用于配合 MathWorks 产品）。
-
-### 服务器反代（不占磁盘，配置即用）
-
-不想上传 38 MB？也可以让服务器**实时反代** GitHub 并缓存。生成配置：
-
-```powershell
-# 有域名（推荐，可复用现有 HTTPS 证书）
-node scripts/proxy-config.mjs --host dl.你的域名 --prefix mp --static-dir /srv/matlab-assets
-# 只有 IP（自动切明文 HTTP，不生成 ssl 指令 —— IP 一般拿不到公共 CA 证书）
-node scripts/proxy-config.mjs --host 159.75.130.207 --prefix mp
-```
-
-它会打印完整 nginx 片段 + 要粘贴进 DSH 的镜像行。**实测到的跳转链决定了配置必须覆盖三个上游**：
-
-```
-github.com/…/releases/latest/download/X  →302 github.com/…/releases/download/vX/X
-                                         →302 release-assets.githubusercontent.com/…   ← 19.5 MB 的二进制
-github.com/…/archive/refs/heads/main.zip →302 codeload.github.com/…                   ← 两个技能仓
-```
-
-nginx **不会跟随跳转**，所以 `codeload` 与 `release-assets` 各自需要独立 `location` **加上** `proxy_redirect` 重写；否则客户端会拿到原始 302、绕过你的代理直连 GitHub CDN（那就白搭了）。生成器已包含这三段，并保留 `Range` 头（「镜像测速」要用）。
-
-粘贴到 DSH 的镜像行（前者静态目录放 exe/mltbx，后者反代技能仓；只想要反代就删掉前半段）：
-
-```yaml
-allowMirrorDownload: true
-downloadMirror: "https://dl.你的域名/matlab-static{path},https://dl.你的域名/mp/{path}"
-```
-
-**部署与安全**
-
-- 独立配置文件（如 `/etc/nginx/conf.d/matlab-proxy.conf`）+ `nginx -t && systemctl reload nginx`，不影响其它服务；
-- `proxy_cache_path` 那行放到 `http { }` 作用域；缓存上限用 `max_size` 控制（默认 2g）；
-- ⚠️ 配置里必须保留 `limit_except GET HEAD` 与 `client_max_body_size 1m` —— **不加就是开放代理**，会被刷流量甚至连累你的 IP 被限流；
-- 缓存命中看响应头 `X-Mirror-Cache: HIT`（配置里已加）：第一次回源、之后走缓存；
-- ⚠️ **release 资产的 URL 带会轮换的签名串**（`?sp=…&se=…&sig=…`），nginx 默认用整个 URI 做 cache key → 每次都 MISS。生成的配置给 `/mp-assets/` 指定了 `proxy_cache_key "$scheme$request_method$host$uri"`（只看路径），否则那个 19.5 MB 的二进制等于没缓存。
-
-### 完全离线：本地制品目录（可选）
-
-把 `mirror-assets.mjs` 产出的目录放到任意路径（共享盘、U 盘、内网目录均可），在 profile 的 `cordis.patch.yml` 里配置：
-
-```yaml
-localAssetsDir: D:\matlab-mirror      # 目录里存在该制品 → 直接复制，一个网络请求都不发
-```
-
-优先级：**本地目录 → 镜像列表 → 直连**。适合内网/断网机器，也适合「一次拷贝、多机复用」。
+**服务器侧的部署工具不在插件里**：自建静态镜像、nginx 反代配置生成、备案与端口注意事项，见 [`deploy/`](deploy/README.md)。
+那份工具与插件运行无关，npm 包也不包含它（`files` 字段里没有 `deploy/`）。
 
 ## 配置项
 

@@ -16,10 +16,10 @@
  * the default key the 19.5 MB binary would be re-fetched on every single
  * install. The generated `/mp-assets/` location therefore keys on the path only.
  *
- *   node scripts/proxy-config.mjs --host dl.example.com
- *   node scripts/proxy-config.mjs --host 159.75.130.207            # IP => plain HTTP by default
- *   node scripts/proxy-config.mjs --host dl.example.com --scheme http --port 8080
- *   node scripts/proxy-config.mjs --host dl.example.com --static-dir /srv/matlab-assets --out proxy.conf
+ *   node deploy/proxy-config.mjs --host dl.example.com
+ *   node deploy/proxy-config.mjs --host 159.75.130.207            # IP => plain HTTP by default
+ *   node deploy/proxy-config.mjs --host dl.example.com --scheme http --port 8080
+ *   node deploy/proxy-config.mjs --host dl.example.com --static-dir /srv/matlab-assets --out proxy.conf
  */
 const argv = process.argv.slice(2)
 const flag = (name, fallback) => {
@@ -172,7 +172,7 @@ const notes = `
 #   * 必须保留 limit_except / client_max_body_size，否则就是一个开放代理，
 #     会被刷流量、甚至导致你的 IP 被 GitHub 限流。
 #   * 缓存上限用 max_size 控制（默认 2g，够缓存全部制品很多个版本）。
-#   * 只想要最稳、零外网：用 scripts/mirror-assets.mjs 做静态镜像（38.4 MB 上传），
+#   * 只想要最稳、零外网：用 deploy/mirror-assets.mjs 做静态镜像（38.4 MB 上传），
 #     那条路径已端到端验证过；本反代是「不占磁盘、配置即用」的替代。
 #   * GitHub 若更换 CDN 域名，用 curl -IL 看 Location，补一条 proxy_redirect
 #     与对应 location 即可。
@@ -185,5 +185,5 @@ if (out !== '') {
   console.error('[proxy-config] written: ' + out)
 }
 if (has('help')) {
-  console.error('usage: node scripts/proxy-config.mjs --host <域名或IP> [--scheme http|https] [--port N] [--prefix mp] [--static-dir /srv/...] [--static matlab-static] [--cache-dir /var/cache/nginx/matlab-proxy] [--cache-size 2g] [--out file]')
+  console.error('usage: node deploy/proxy-config.mjs --host <域名或IP> [--scheme http|https] [--port N] [--prefix mp] [--static-dir /srv/...] [--static matlab-static] [--cache-dir /var/cache/nginx/matlab-proxy] [--cache-size 2g] [--out file]')
 }

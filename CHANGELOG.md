@@ -39,11 +39,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - **设置卡**（浏览器半边）
   - 14 个字段、状态面板（二进制版本 / 工具箱 / 技能仓 / MATLAB 路径）、6 个动作按钮（保存、一键安装修复、测试连接、深度自检、重连、刷新状态、恢复默认）。
   - 独立的设置命名空间桥（`/settings/describe`、`/settings/mutate`），与 DSH 0.1.5 / 0.2 两代兼容。
-- **文档**：中文为主 README、英文 README、`docs/tools.md`（14 个工具的参数说明）、验收记录。
+- **文档**：中文为主 README、英文 README、`docs/tools.md`（14 个工具的参数说明）、`scripts/`（可复跑的真实验证脚本）、验收记录 `docs/acceptance-2026-10-14.md`。
+
+### 修复
+
+- **Windows 下 `matlab -batch` 吞掉内层双引号**：`matlab -batch "disp(\"x\")"` 会被拆词，导致安装工具箱、`savepath`、`which` 全部失败且 stdout 为空。改为把代码写入 `<cache>/tmp/<name>.m`，以「`-batch <脚本名>` + `cwd` 指向该目录」执行 —— 单一 token、无引号，任意代码（含引号与换行）都能安全通过。
+- **`src/index.ts` 的路由 `getConfig` 类型**：暴露解析后的配置（`ResolvedConfig`）而不是原始活值配置。
+- **MATLAB 安装选择**：调用方传入的候选列表也会按发布版排序，避免「谁在后面谁生效」的隐式行为。
 
 ### 说明
 
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
+- **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
 [Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...HEAD
 [0.1.0]: https://github.com/MCviseron/dsh-matlab-mcp/releases/tag/v0.1.0

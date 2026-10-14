@@ -205,7 +205,7 @@ Agent 会自动：先 `detect_matlab_toolboxes` 探测 → 需要时加载对应
 | F | 技能注入 | 技能出现在目录、`skill()` 可加载、行为符合技能指引 |
 | G | 零手动 | 删缓存后一键安装即可复现 B–F |
 | H | 稳定性 | 安装幂等、卸载无残留、无孤儿 MATLAB 进程 |
-| I | 文档 | 本 README、`docs/tools.md`、CHANGELOG、验收记录 |
+| I | 文档 | 本 README、`docs/tools.md`、CHANGELOG、验收记录、可复跑验证脚本 `scripts/` |
 
 ## 开发
 

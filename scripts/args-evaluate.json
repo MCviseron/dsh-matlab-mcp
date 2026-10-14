@@ -1,0 +1,4 @@
+{
+  "code": "disp(\"MATLAB \" + version); t = ver; names = string({t.Name}); disp(\"Simulink present: \" + any(names == \"Simulink\")); disp(\"toolbox count: \" + numel(t))",
+  "project_path": "D:\\Program\\DSH-Plugin-Class\\dsh-matlab-mcp\\.spike\\work"
+}

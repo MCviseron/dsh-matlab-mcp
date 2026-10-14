@@ -65,7 +65,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/config-values.test.ts && node --experimental-strip-types test/download.test.ts && node --experimental-strip-types test/paths.test.ts && node --experimental-strip-types test/server-args.test.ts && node --experimental-strip-types test/skills.test.ts",
+    "test": "node --experimental-strip-types test/config-values.test.ts && node --experimental-strip-types test/download.test.ts && node --experimental-strip-types test/paths.test.ts && node --experimental-strip-types test/server-args.test.ts && node --experimental-strip-types test/skills.test.ts && node --experimental-strip-types test/matlab-processes.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build"
   },

@@ -12,7 +12,7 @@
  */
 import { execFile } from 'node:child_process'
 import { existsSync } from 'node:fs'
-import { mkdir, readdir, rm, stat } from 'node:fs/promises'
+import { mkdir, readdir, rm, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { promisify } from 'node:util'
 import {
@@ -253,14 +253,34 @@ export interface MatlabBatchResult {
   error?: string
 }
 
-/** Run one `matlab -batch` snippet (no desktop, exit code is meaningful). */
+/**
+ * Run one `matlab -batch` snippet (no desktop, exit code is meaningful).
+ *
+ * The snippet is written to a temporary `.m` file and invoked **by script name**
+ * rather than passed as `-batch "<code>"`: on Windows MATLAB's command-line
+ * parser mangles inner double quotes (verified: `disp("x")` arrives split at
+ * spaces and the quotes vanish), so a file name — a single token with no quotes
+ * — is the only form that survives arbitrary code.
+ */
 export async function runMatlabBatch(root: string, code: string, timeoutMs = 600_000): Promise<MatlabBatchResult> {
+  const dir = join(matlabCacheRoot(), 'tmp')
+  await mkdir(dir, { recursive: true })
+  const scriptName = 'dsh_matlab_step_' + Date.now().toString(36) + Math.floor(Math.random() * 1296).toString(36)
+  const scriptPath = join(dir, scriptName + '.m')
+  await writeFile(scriptPath, code.endsWith('\n') ? code : code + '\n', 'utf8')
   try {
-    const { stdout, stderr } = await run(matlabExecutable(root), ['-batch', code], { timeout: timeoutMs, windowsHide: true, maxBuffer: 8 * 1024 * 1024 })
+    const { stdout, stderr } = await run(matlabExecutable(root), ['-batch', scriptName], {
+      timeout: timeoutMs,
+      cwd: dir,
+      windowsHide: true,
+      maxBuffer: 8 * 1024 * 1024,
+    })
     return { ok: true, stdout, stderr }
   } catch (error) {
     const failure = error as { stdout?: string; stderr?: string; message?: string }
     return { ok: false, stdout: failure.stdout ?? '', stderr: failure.stderr ?? '', error: failure.message ?? String(error) }
+  } finally {
+    await rm(scriptPath, { force: true })
   }
 }
 
@@ -271,7 +291,7 @@ export async function installToolbox(root: string, mltbx: string, log: Provision
   const code = 'matlab.addons.toolbox.installToolbox(' + quoteMatlab(mltbx) + '); disp("DSH_MATLAB_MCP_TOOLBOX_OK")'
   const result = await runMatlabBatch(root, code, 900_000)
   const ok = result.ok && result.stdout.includes('DSH_MATLAB_MCP_TOOLBOX_OK')
-  log(ok ? '工具箱安装完成 / toolbox installed' : '工具箱安装失败 / toolbox install failed')
+  log(ok ? '工具箱安装完成 / toolbox installed' : '工具箱安装失败 / toolbox install failed: ' + (result.stderr || result.stdout || result.error || '').trim().slice(-300))
   return { ...result, ok }
 }
 
@@ -291,7 +311,8 @@ export async function registerSimulinkPaths(root: string, log: ProvisionLogger):
     'disp("DSH_MATLAB_MCP_PATHS_OK " + string(status))',
   ].join(' ')
   const result = await runMatlabBatch(root, code, 300_000)
-  log(result.stdout.includes('DSH_MATLAB_MCP_PATHS_OK 0') ? '路径已保存 / path saved' : '路径保存可能失败 / path save may have failed')
+  const saved = result.stdout.includes('DSH_MATLAB_MCP_PATHS_OK 0')
+  log(saved ? '路径已保存 / path saved' : '路径保存失败 / path save failed: ' + (result.stderr || result.stdout || result.error || '').trim().slice(-300))
   return result
 }
 

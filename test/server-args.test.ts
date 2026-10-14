@@ -5,7 +5,7 @@
  *
  * `node --experimental-strip-types test/server-args.test.ts`
  */
-import { buildServerArgs, buildServerEnv } from '../src/server-args.ts'
+import { buildMatlabDesktopArgs, buildServerArgs, buildServerEnv } from '../src/server-args.ts'
 
 let failures = 0
 function check(label: string, actual: unknown, expected: unknown): void {
@@ -58,6 +58,12 @@ check('the Windows root survives into the child env', env.windir, 'C:\\Windows')
 check('SystemRoot survives into the child env', env.SystemRoot, 'C:\\Windows')
 check('PATH survives into the child env', env.PATH, 'C:\\bin')
 check('unrelated secret-shaped names are not forwarded', env.SECRET_TOKEN, undefined)
+
+// The chat-header "Open MATLAB" button: `new` mode owns its own session, so a
+// plain desktop is right; auto/existing must share the session the server attaches to.
+check('new mode opens a plain MATLAB desktop', buildMatlabDesktopArgs('new'), [])
+check('auto mode opens a shared session', buildMatlabDesktopArgs('auto'), ['-r', 'shareMATLABSession'])
+check('existing mode opens a shared session', buildMatlabDesktopArgs('existing'), ['-r', 'shareMATLABSession'])
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`)
 process.exit(failures === 0 ? 0 : 1)

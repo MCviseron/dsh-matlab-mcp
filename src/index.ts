@@ -14,7 +14,7 @@ import type {} from '@deepseek-ai/dsh-skill'
 import * as mcpClient from '@deepseek-ai/dsh-mcp-client'
 import z from '@deepseek-ai/schemastery'
 import { MATLAB_MCP_GUIDANCE, SECTION_ORDER } from './guidance.ts'
-import { makeMatlabMcpRoutes, makeMatlabMcpSettingsRoutes, type SettingsBridge } from './routes.ts'
+import { makeMatlabMcpRoutes, makeMatlabMcpSettingsRoutes, type MatlabOpenResponse, type SettingsBridge } from './routes.ts'
 import { booleanField, enumField, numberField, stringField, unwrapConfig } from './config-values.ts'
 import { DEFAULT_MIRROR } from './download.ts'
 import { binaryPath, pickMatlabRoot } from './paths.ts'
@@ -28,8 +28,8 @@ import {
   type SetupResult,
 } from './provision.ts'
 import { probeMcp, type McpProbeResult } from './selftest.ts'
-import { buildServerArgs, buildServerEnv, DISPLAY_MODES, SESSION_MODES, type DisplayMode, type SessionMode } from './server-args.ts'
-import { releaseOwnedMatlab, rememberSpawnBaseline } from './matlab-processes.ts'
+import { buildMatlabDesktopArgs, buildServerArgs, buildServerEnv, DISPLAY_MODES, SESSION_MODES, type DisplayMode, type SessionMode } from './server-args.ts'
+import { releaseOwnedMatlab, rememberSpawnBaseline, agentSessionPids, launchMatlabDesktop } from './matlab-processes.ts'
 import { resolveSkillGroups } from './skills-catalog.ts'
 import { createToolkitSkillProvider } from './skills-provider.ts'
 import type { SkillProviderControl } from '@deepseek-ai/dsh-skill'
@@ -298,6 +298,31 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
 
   const provisionLogger: ProvisionLogger = () => {}
 
+  /**
+   * Open a MATLAB desktop window for the user (chat-header action).
+   *
+   * In `auto`/`existing` mode the window is opened with `shareMATLABSession`,
+   * so it is the *same* session the MCP server attaches to — the user watches
+   * the agent work. In `new` mode the plugin's server owns its own MATLAB, so
+   * the button opens an independent window and says so.
+   */
+  const openMatlab = async (): Promise<MatlabOpenResponse> => {
+    const active = resolved()
+    const root = pickMatlabRoot({ preferred: active.matlabRoot })
+    if (root === undefined) throw new Error('未找到 MATLAB 安装 / no MATLAB installation found')
+    const running = await agentSessionPids()
+    const args = buildMatlabDesktopArgs(active.sessionMode)
+    const pid = launchMatlabDesktop(root, args)
+    if (pid === undefined) throw new Error('无法在 ' + root + ' 启动 MATLAB / could not start MATLAB at ' + root)
+    const shared = active.sessionMode !== 'new'
+    const message = shared
+      ? '已打开共享 MATLAB 会话，Agent 会连接到这个窗口 / opened a shared session the agent will attach to'
+      : running.length > 0
+        ? '已打开独立 MATLAB 窗口；Agent 使用的是它自己启动的会话 / opened an independent window; the agent keeps its own session'
+        : '已打开 MATLAB 窗口 / MATLAB window opened'
+    return { pid, matlabRoot: root, sessionMode: active.sessionMode, agentSession: running.length > 0, message }
+  }
+
   const runSetupWithConfig = async (log: ProvisionLogger): Promise<SetupResult> => {
     const active = resolved()
     const result = await runSetup({
@@ -348,6 +373,7 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
       },
       setup: async (log: ProvisionLogger) => await runSetupWithConfig(log),
       probe,
+      openMatlab,
       reconnect: remountClient,
       diagnostics: () => ({ mountCount, mountError: mountError ?? null, skillGroups: skillCount, binary: binaryPath() }),
     }).map(route => ctx.webServer.register(route))

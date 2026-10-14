@@ -1,16 +1,16 @@
 /**
- * MATLAB process cleanup.
+ * MATLAB process control.
  *
- * The official MCP server starts MATLAB itself, and killing the server does NOT
- * stop that MATLAB (verified: after the probe client exited, a MATLAB process
- * from the same run kept running). Leaving it behind would accumulate desktop
- * windows and licenses across plugin reloads, so the plugin tracks which MATLAB
- * processes descend from *its* MCP server binary and stops only those.
+ * Two directions matter here:
+ *  - **stop** the MATLAB the plugin's own MCP server started (on unload), and
+ *  - **open** a MATLAB desktop window on demand from the chat UI.
  *
  * Ownership is decided by process parentage, never by name alone: a MATLAB the
- * user started by hand is never touched.
+ * user started by hand is never touched by the cleanup path.
  */
-import { execFile } from 'node:child_process'
+import { execFile, spawn } from 'node:child_process'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 import { promisify } from 'node:util'
 import { binaryPath } from './paths.ts'
 
@@ -63,7 +63,7 @@ export async function listProcesses(): Promise<ProcessRow[]> {
  * MATLAB PIDs reachable from any process running the given executable — the MCP
  * server binary and, through it, the MATLAB it launched.
  */
-export function ownedMatlabPids(rows: readonly ProcessRow[], serverExe: string, protected_Pids: ReadonlySet<number> = preexisting): number[] {
+export function ownedMatlabPids(rows: readonly ProcessRow[], serverExe: string, protectedPids: ReadonlySet<number> = preexisting): number[] {
   const target = serverExe.toLowerCase()
   const roots = rows.filter(row => typeof row.ExecutablePath === 'string' && row.ExecutablePath.toLowerCase() === target).map(row => row.ProcessId)
   if (roots.length === 0) return []
@@ -73,6 +73,7 @@ export function ownedMatlabPids(rows: readonly ProcessRow[], serverExe: string, 
     if (list === undefined) childrenOf.set(row.ParentProcessId, [row.ProcessId])
     else list.push(row.ProcessId)
   }
+  const byId = new Map(rows.map(row => [row.ProcessId, row]))
   const owned: number[] = []
   const queue = [...roots]
   const seen = new Set<number>(roots)
@@ -82,8 +83,8 @@ export function ownedMatlabPids(rows: readonly ProcessRow[], serverExe: string, 
       if (seen.has(child)) continue
       seen.add(child)
       queue.push(child)
-      const row = rows.find(candidate => candidate.ProcessId === child)
-      if (row !== undefined && isMatlab(row) && !protected_Pids.has(child)) owned.push(child)
+      const row = byId.get(child)
+      if (row !== undefined && isMatlab(row) && !protectedPids.has(child)) owned.push(child)
     }
   }
   return owned
@@ -117,4 +118,27 @@ export async function releaseOwnedMatlab(log: (message: string) => void): Promis
     if (await killTree(pid)) killed.push(pid)
   }
   return killed
+}
+
+/** MATLAB processes this plugin's MCP server currently owns (its agent session). */
+export async function agentSessionPids(): Promise<number[]> {
+  const rows = await listProcesses()
+  return ownedMatlabPids(rows, binaryPath())
+}
+
+/**
+ * Open a MATLAB desktop window that outlives this call.
+ *
+ * `detached` + `unref` is the point: the window must stay open after the HTTP
+ * response and after the plugin is unloaded, so it is deliberately NOT a child
+ * this plugin tracks or kills.
+ *
+ * @returns the spawned process id, or `undefined` when MATLAB is not installed there.
+ */
+export function launchMatlabDesktop(root: string, args: readonly string[] = []): number | undefined {
+  const exe = join(root, 'bin', process.platform === 'win32' ? 'matlab.exe' : 'matlab')
+  if (!existsSync(exe)) return undefined
+  const child = spawn(exe, [...args], { detached: true, stdio: 'ignore', windowsHide: false })
+  child.unref()
+  return child.pid
 }

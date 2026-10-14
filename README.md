@@ -44,6 +44,7 @@
 | 工具箱探测 | `detect_matlab_toolboxes`：列出已安装产品与版本 |
 | Simulink 模型操作 | `model_overview`、`model_read`、`model_query_params`、`model_resolve_params`、`model_edit`、`model_read_diagnostics`、`model_check`、`model_scan`、`model_test` |
 | 专家技能 | 按组注册 MathWorks Agentic Toolkit 技能（调试、代码评审、Live Script、建模仿真最佳实践…），用标准 `skill` 工具按需加载 |
+| 打开 MATLAB 按钮 | **聊天主界面**标题栏有一个「打开 MATLAB」按钮，点一下弹出 MATLAB 桌面窗口；`auto`/`existing` 模式下打开的是**共享会话**，你可以直接在窗口里看 Agent 干活 |
 | 一键安装 | 设置卡「一键安装 / 修复」：自动下载官方二进制、MATLAB 端工具箱、两个技能仓，并注册 Simulink 工具包路径。**全程不需要你手动打开 MATLAB** |
 | 零手动 | 默认 `sessionMode=new`：插件自己启动 MATLAB（桌面可见），你只需要用自然语言下命令 |
 | 网络兜底 | 直连 GitHub 失败时可选用镜像（**默认关闭**，开启后仅在直连失败时启用，并校验 PE/ZIP 魔数） |

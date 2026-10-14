@@ -23,6 +23,7 @@ you ──natural language──▶ DSH agent
 | Toolbox discovery | `detect_matlab_toolboxes` |
 | Simulink model tools | `model_overview`, `model_read`, `model_query_params`, `model_resolve_params`, `model_edit`, `model_read_diagnostics`, `model_check`, `model_scan`, `model_test` |
 | Expert skills | MathWorks Agentic Toolkit skills registered per group and loaded on demand through DSH's own `skill` tool |
+| Open MATLAB button | A chat-header action opens a MATLAB desktop window; in `auto`/`existing` mode it opens a *shared* session so you watch the agent work in the same MATLAB |
 | One-click setup | Downloads the official binary, the MATLAB-side toolbox and both toolkit repositories, then registers the Simulink toolkit path — **no manual step in MATLAB** |
 | No manual operation | Default `sessionMode=new`: the plugin starts MATLAB itself (desktop visible) and you just talk to the agent |
 | Network fallback | Optional mirror for blocked networks (**off by default**; only used after a direct failure, with PE/ZIP magic verification) |

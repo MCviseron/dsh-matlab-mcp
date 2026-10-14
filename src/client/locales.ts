@@ -64,6 +64,10 @@ export const zh = {
   'settings.noMatlab': '未检测到 MATLAB 安装',
   'settings.candidates': '检测到的 MATLAB',
   'settings.installHint': '首次使用请点「一键安装 / 修复」：下载官方 MCP 服务器二进制、MATLAB 端工具箱与两个 Agentic Toolkit，并注册 Simulink 工具包路径。',
+  'button.openMatlab': '打开 MATLAB',
+  'button.openMatlabHint': '打开一个 MATLAB 桌面窗口。会话模式为 auto/existing 时会以共享会话方式打开，Agent 与你在同一个 MATLAB 里工作；new 模式则打开独立窗口。',
+  'button.opening': '正在打开…',
+  'button.opened': '已打开 MATLAB',
 } as const
 
 export const en = {
@@ -132,6 +136,10 @@ export const en = {
   'settings.noMatlab': 'No MATLAB installation detected',
   'settings.candidates': 'Detected MATLAB',
   'settings.installHint': 'On first use press "Install / repair": it downloads the official MCP server binary, the MATLAB toolbox and both Agentic Toolkits, then registers the Simulink toolkit path.',
+  'button.openMatlab': 'Open MATLAB',
+  'button.openMatlabHint': 'Open a MATLAB desktop window. In auto/existing session mode it opens a shared session so the agent works in the same MATLAB; in new mode it opens an independent window.',
+  'button.opening': 'Opening…',
+  'button.opened': 'MATLAB opened',
 } as const
 
 export type MatlabMcpKey = keyof typeof zh

@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-14
+
+### 新增
+
+- **聊天主界面「打开 MATLAB」按钮**：注册到会话标题栏动作位 `conversation.session.header.actions`（独立于设置页的第二个 UI 入口），点击即打开 MATLAB 桌面窗口。
+  - `new` 会话模式：打开独立 MATLAB 桌面窗口，按钮提示里说明 Agent 使用的是它自己启动的会话。
+  - `auto` / `existing` 会话模式：以 `-r shareMATLABSession` 打开**共享**会话，MCP 服务器随后连到同一个 MATLAB —— 你能在窗口里直接看着 Agent 干活。
+  - 以 `detached + unref` 启动，窗口独立于插件生命周期：插件卸载不会关掉它（脚本 `scripts/open-matlab.ts` 实测：新 MATLAB 进程出现，且归属判定为「非本插件所有」）。
+  - 新增宿主路由 `POST /api/dsh-matlab-mcp/open-matlab` 与 `buildMatlabDesktopArgs` 单测。
+
 ## [0.1.0] - 2026-10-14
 
 首次发布：把 DSH 接到 MathWorks 官方 MATLAB MCP Server，实现「用自然语言让 Agent 自己动手跑 MATLAB / Simulink」。
@@ -52,5 +62,6 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/MCviseron/dsh-matlab-mcp/releases/tag/v0.1.0

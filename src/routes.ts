@@ -16,6 +16,7 @@ export const MATLAB_MCP_API = {
   test: '/api/dsh-matlab-mcp/test',
   reconnect: '/api/dsh-matlab-mcp/reconnect',
   diagnostics: '/api/dsh-matlab-mcp/diagnostics',
+  openMatlab: '/api/dsh-matlab-mcp/open-matlab',
   settingsDescribe: '/api/dsh-matlab-mcp/settings/describe',
   settingsMutate: '/api/dsh-matlab-mcp/settings/mutate',
 } as const
@@ -70,6 +71,16 @@ export interface SettingsBridge {
   mutate: (ns: string, ops: readonly SettingsPathOp[], expectedRevision?: number) => Promise<void>
 }
 
+/** Result of one "open MATLAB" request, rendered by the chat-header button. */
+export interface MatlabOpenResponse {
+  pid?: number
+  matlabRoot?: string
+  sessionMode: string
+  /** Whether the plugin's own MCP session already has a MATLAB running. */
+  agentSession: boolean
+  message: string
+}
+
 function toView(descriptor: SettingsBridgeView): unknown {
   return {
     ns: String(descriptor.ns),
@@ -84,6 +95,8 @@ function toView(descriptor: SettingsBridgeView): unknown {
 
 export interface MatlabMcpRouteDeps {
   getConfig: () => ResolvedConfig
+  /** Open a MATLAB desktop window (chat-header action). */
+  openMatlab: () => Promise<MatlabOpenResponse>
   /** Current on-disk provisioning state (binary/toolbox/toolkits/MATLAB). */
   getState: () => Promise<ProvisionState>
   /** The exact MCP-client config this plugin would mount (diagnostics). */
@@ -164,6 +177,20 @@ export function makeMatlabMcpRoutes(deps: MatlabMcpRouteDeps): WebRoute[] {
     },
   }
 
+  const openMatlab: WebRoute = {
+    kind: 'exact',
+    path: MATLAB_MCP_API.openMatlab,
+    handler: async (req, res): Promise<void> => {
+      if (req.method !== 'POST') return json(res, 405, { ok: false, error: 'method-not-allowed' })
+      if (!isLoopbackRequest(req)) return json(res, 403, { ok: false, error: 'forbidden' })
+      try {
+        json(res, 200, { ok: true, result: await deps.openMatlab() })
+      } catch (error) {
+        json(res, 500, { ok: false, error: 'open-matlab-failed', message: error instanceof Error ? error.message : String(error) })
+      }
+    },
+  }
+
   const reconnect: WebRoute = {
     kind: 'exact',
     path: MATLAB_MCP_API.reconnect,
@@ -181,7 +208,7 @@ export function makeMatlabMcpRoutes(deps: MatlabMcpRouteDeps): WebRoute[] {
     },
   }
 
-  return [status, setup, test, reconnect, diagnostics]
+  return [status, setup, test, reconnect, diagnostics, openMatlab]
 }
 
 export function makeMatlabMcpSettingsRoutes(settings: SettingsBridge): WebRoute[] {

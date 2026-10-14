@@ -4,6 +4,7 @@ import type {} from '@deepseek-ai/dsh-client-ui-renderer/client'
 import type {} from '@deepseek-ai/dsh-client-ui-slots'
 import type {} from '@deepseek-ai/dsh-client-ui-settings/client'
 import { MatlabMcpSettingsCard, MatlabMcpSettingsCardController, type MatlabMcpSettings } from './MatlabMcpSettingsCard.tsx'
+import { MatlabOpenButton, MatlabOpenController } from './MatlabOpenButton.tsx'
 import { createMatlabMcpSettingsScope } from './settings-scope.ts'
 import { en, zh, type MatlabMcpKey } from './locales.ts'
 
@@ -36,5 +37,19 @@ export function apply(ctx: ClientContext): void {
       controller.dispose()
       unregister()
     }
+  })
+
+  // Chat main interface: an "Open MATLAB" action in the session header.
+  const openController = new MatlabOpenController()
+  ctx.slots.inject('conversation.session.header.actions', () => {
+    const unregister = ctx.slots.register({
+      name: 'conversation.session.header.actions',
+      id: 'matlab-mcp-open',
+      order: 40,
+      label: () => ctx.locale.bind(NS)('button.openMatlab'),
+      locale: NS,
+      inject: () => openController.inject(),
+    }, MatlabOpenButton)
+    return () => { unregister() }
   })
 }

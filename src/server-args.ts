@@ -99,3 +99,15 @@ export function buildServerEnv(source: NodeJS.ProcessEnv = process.env, extra: R
 
 /** The MCP namespace every bridged tool appears under (`mcp__matlab__<tool>`). */
 export const SERVER_NAME = MCP_SERVER_NAME
+
+/**
+ * Arguments for opening a MATLAB desktop window from the chat UI.
+ *
+ * `new` mode owns its own MATLAB, so the button opens a plain desktop. `auto`
+ * and `existing` attach to a *shared* MATLAB session, so the window is opened
+ * with `shareMATLABSession` — the same session the MCP server then connects to,
+ * which is what makes the agent's work visible in the window the user opened.
+ */
+export function buildMatlabDesktopArgs(sessionMode: SessionMode): string[] {
+  return sessionMode === 'new' ? [] : ['-r', 'shareMATLABSession']
+}

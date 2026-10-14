@@ -19,6 +19,11 @@
 # Usage: push a tag (`git tag v0.7.2 && git push origin v0.7.2`) or run this
 # workflow manually (dry-run packs without publishing).
 name: publish
+# Trusted Publisher 字段（npmjs.com → 该包 → Settings → Trusted Publisher → GitHub Actions）:
+#   Organization or user : MCviseron
+#   Repository           : dsh-matlab-mcp
+#   Workflow filename    : publish.yml
+#   Environment          : （留空）
 
 on:
   push:
@@ -77,6 +82,8 @@ jobs:
       - name: Publish
         if: ${{ github.event_name == 'push' || !inputs.dry-run }}
         run: npm publish --access public --provenance
-        env:
-          # Only used when no trusted publisher is configured; OIDC wins when it is.
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # No NODE_AUTH_TOKEN here on purpose: npm authenticates with the OIDC
+        # token above. An empty NODE_AUTH_TOKEN would be sent as a bearer token
+        # and break the exchange. If you ever switch to a granular access token
+        # instead of a trusted publisher, add back:
+        #   env: { NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }} }

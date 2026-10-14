@@ -9,7 +9,9 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### 发布
 
-- **发布准备就绪**：`npm pack` 复核通过（35 文件 / 压缩 421.9 kB；含自包含 `lib/`、`cordis.patch.yml`、README、LICENSE；`dependencies` 为空 → 安装即用、无需构建）。npm 现要求发布时提供 2FA 动态码：`npm publish --access public --registry=https://registry.npmjs.org --otp=******`（注意本机 npm 默认 registry 是只读镜像 npmmirror，必须显式指定官方源）。
+- **已发布到 npm：`dsh-matlab-mcp@0.7.1`**（2026-10-14，35 文件 / 压缩 421.9 kB；含自包含 `lib/`、`cordis.patch.yml`、README、LICENSE；`dependencies` 为空 → 安装即用、无需构建）。
+- **踩坑记录（staged publishing）**：npm 现在要求发布时提供 2FA；不带 `--otp` 时它不会直接发布，而是先建一个占位版本 `0.0.0-stage`（336 B，描述为 *Temporary package placeholder for staged publishing*）并把真实版本置于「等待分阶段发布」状态 —— 此时 `dsh-matlab-mcp-0.7.1.tgz` 仍是 404。补带 `--otp` 重发，或 `npm stage list` + `npm stage approve <id>` 后即为 `latest`。完整维护者流程见 [`docs/release.md`](docs/release.md)。
+- 本机 npm 默认 registry 是只读镜像 `registry.npmmirror.com`，**发布必须显式 `--registry=https://registry.npmjs.org`**；发布后可用 `PUT https://registry.npmmirror.com/-/package/dsh-matlab-mcp/syncs` 让国内镜像立刻同步。
 - 新增 `.github/workflows/publish.yml`：推 tag 即发布，优先走 **npm trusted publishing（OIDC，无 token、带 provenance）**；`workflow_dispatch` 可只打包不发布。首次发布因包尚不存在，需手动 `--otp` 完成，之后在 npmjs.com 配置 Trusted Publisher 即可交给 CI。
 ## [0.7.1] - 2026-10-14
 

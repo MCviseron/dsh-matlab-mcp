@@ -2,6 +2,8 @@
 
 [中文](README.md) | **English**
 
+[![npm version](https://img.shields.io/npm/v/dsh-matlab-mcp.svg)](https://www.npmjs.com/package/dsh-matlab-mcp) [![license](https://img.shields.io/npm/l/dsh-matlab-mcp.svg)](LICENSE) [![node](https://img.shields.io/node/v/dsh-matlab-mcp.svg)](package.json)
+
 A DeepSeek Harness (DSH) plugin that lets the agent **actually drive MATLAB and Simulink**: run MATLAB code, execute `.m` scripts and unit tests, statically check code quality, and read/edit/query/check/simulate Simulink models — all through the **official MathWorks MATLAB MCP Server**, with the **MATLAB / Simulink Agentic Toolkit** skills injected into the session.
 
 > This is not "an AI inside MATLAB". It is the other way round: **MATLAB is exposed as an MCP server that DSH calls**. The plugin only mounts the official server, provisions the official artifacts, and registers the official skills.
@@ -50,6 +52,17 @@ you ──natural language──▶ DSH agent
 | Network | GitHub reachable for the first install; a mirror switch exists for restricted networks | direct link unstable, mirror works |
 
 ## Install
+
+### From npm (simplest)
+
+```powershell
+cd "$env:DSH_HOME\profiles\<your profile>"
+pnpm add dsh-matlab-mcp
+# add "dsh-matlab-mcp" to that profile's dsh.profile.bundles, then restart DeepSeek Harness
+# finally: Settings → MATLAB / Simulink MCP → Install / repair
+```
+
+The plugin row needs no hand-editing — the package ships its own `cordis.patch.yml` (`dsh.bundle.patch`). `dependencies` is empty and the bundle is self-contained, so installing needs neither a build nor a toolchain.
 
 ### Direct install (recommended, two commands)
 

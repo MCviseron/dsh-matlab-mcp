@@ -2,6 +2,8 @@
 
 **中文** | [English](README.en.md)
 
+[![npm version](https://img.shields.io/npm/v/dsh-matlab-mcp.svg)](https://www.npmjs.com/package/dsh-matlab-mcp) [![license](https://img.shields.io/npm/l/dsh-matlab-mcp.svg)](LICENSE) [![node](https://img.shields.io/node/v/dsh-matlab-mcp.svg)](package.json)
+
 让 DeepSeek Harness（DSH）的 Agent **直接动手操作 MATLAB 与 Simulink** 的插件：执行 MATLAB 代码、运行 `.m` 脚本与单元测试、做代码静态检查、读写/查询/检查/仿真 Simulink 模型 —— 全部通过 **MathWorks 官方 MATLAB MCP Server** 完成，并注入 **MATLAB / Simulink Agentic Toolkit** 的专家技能。
 
 > 这不是"在 MATLAB 里塞一个 AI"，而是反过来：**MATLAB 作为 MCP 服务器被 DSH 调用**。DSH 侧只做三件事：挂载官方 MCP 服务器、一键供给官方制品、把官方技能注册进技能目录。
@@ -75,7 +77,18 @@
 
 ## 安装
 
-### 0. 直接安装（推荐，两条命令）
+### 从 npm 安装（最省事）
+
+```powershell
+cd "$env:DSH_HOME\profiles\<你的 profile>"
+pnpm add dsh-matlab-mcp
+# 再把 "dsh-matlab-mcp" 加进该 profile package.json 的 dsh.profile.bundles，重启 DeepSeek Harness
+# 然后 设置 → MATLAB / Simulink MCP → 点「一键安装 / 修复」
+```
+
+插件行**不用手写**：包内自带 `cordis.patch.yml`（`dsh.bundle.patch`），DSH 组合时会自动插入。`dependencies` 为空、bundle 自包含 —— 安装无需构建，也无需任何编译工具链。
+
+### 从 git clone 安装（可离线 / 想改代码时用）
 
 ```powershell
 git clone https://github.com/MCviseron/dsh-matlab-mcp.git D:\dsh-matlab-mcp
@@ -89,11 +102,11 @@ node D:\dsh-matlab-mcp\scripts\install.mjs     # 加 --dry-run 可先预演
 3. 直接建立（或修复）`node_modules` 里的联接 —— 有 pnpm 时顺带跑一次 `pnpm install`，**没有 pnpm 也能装**；顺带修复其它本地插件失效的 `link:` 联接；
 4. 打印后续步骤。
 
-跑完**重启 DeepSeek Harness**，再做下面第 2 步的「一键安装运行时」。
+跑完**重启 DeepSeek Harness**，再做下面「一键安装运行时」。
 
 > 兼容性说明：`lib/` 随仓库提交，CI（`.github/workflows/check.yml`）会在每次 push 时重新构建并校验 `lib/` 与 `src/` 一致、且 bundle 里不再有 `@deepseek-ai/*` 外部 import —— 所以「提交构建产物」不会变成悄悄过期的坑。
 
-### 1. 手动安装插件本体
+### 手动接线（不用脚本）
 
 不想用脚本就手工接线（同样**不需要构建**，仓库自带 `lib/`）：
 
@@ -127,7 +140,7 @@ cd "$env:DSH_HOME\profiles\web"; pnpm install
 
 然后**重启 DeepSeek Harness**（新增 bundle 需要重新读取插件清单）。
 
-### 2. 一键安装运行时（在 DSH 设置里）
+### 一键安装运行时（在 DSH 设置里）
 
 打开 **设置 → MATLAB / Simulink MCP**，点 **「一键安装 / 修复」**。它会：
 

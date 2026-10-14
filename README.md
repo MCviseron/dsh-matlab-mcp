@@ -227,6 +227,7 @@ Agent 会自动：先 `detect_matlab_toolboxes` 探测 → 需要时加载对应
 | 启动日志：`matlab-mcp (dsh-matlab-mcp): failed to import` | 插件入口加载失败。① 你的仓库副本是 0.2.x 或更早（那时 `lib/` 不进仓库）→ `git pull` 到 0.3.0+（自带 `lib/`）；② profile 里的 `node_modules` 联接失效（见下一条）；③ 自己改过 `src/` 却没重新 `pnpm build`。跑 `node scripts/install.mjs` 可一次处理接线问题 |
 | 启动日志：多个插件同时 `failed to activate` / `failed to import` | profile 的 `node_modules` 里 `link:` 联接坏了（pnpm 对 `link:D:/...` 跨盘路径会生成无效联接，指向 `C:\...\profiles\<p>\D:\...`）。用 `mklink /J <profile>\node_modules\<插件名> <真实目录>` 逐个修复，或直接重跑 `node scripts/install.mjs`（它会统一修复） |
 | 客户端**直接崩溃**并生成 `crash-*-host.log`，里面有 `spawn ...matlab-mcp-server-windows-x64.exe ENOENT` | **`ENOENT` 不代表文件不存在** —— libuv 在 `cwd` 不存在时也报这个错。0.4.0 起插件会自动创建工作目录并在挂载前预检二进制；若你还在 0.3.x：升级，或先手工 `mkdir "%USERPROFILE%\.dsh\matlab-mcp\workspace"` 再重试。这也是 DSH 侧 `dsh-mcp-client` 未捕获 spawn 错误导致宿主退出的健壮性缺陷 |
+| 卸载/安装插件时报 `ERR_PNPM_UNEXPECTED_STORE`（…linked from the store at …store\v10 … pnpm now wants …store\v11） | profile 的 `node_modules` 是**全局 pnpm 10.x** 装的（`node_modules\.modules.yaml` 里记着 `storeDir`），而 DSH 运行时自带的 pnpm 是 **11.x**（store 格式 v11）→ 两者对 store 版本的要求打架。**改用与这棵树匹配的 pnpm**：在 profile 目录里用 **PATH 上的 `pnpm`（10.6.3）** 操作即可（`pnpm store path` 会正好指向 `.modules.yaml` 里的那个 store）；暂时别用 DSH 界面里的卸载/安装按钮，除非先用运行时 pnpm 跑一次 `pnpm install` 把整棵树重链到 v11 |
 | 安装极慢或卡在下载 | 点设置卡「**镜像测速**」，再点「把最快的排到最前」。镜像存活期常常只有几小时（实测 `ghproxy.net` 数小时内从可用掉到 0.03 MB/s），默认列表会过期 |
 | `not-provisioned` / 没有 `mcp__matlab__*` 工具 | 还没安装运行时。点设置卡「一键安装 / 修复」 |
 | 首次调用很慢（20–45 秒） | MATLAB 冷启动，属正常；之后再调用是秒级 |

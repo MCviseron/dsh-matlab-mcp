@@ -184,3 +184,23 @@ model_test     -> ...\model_test\model_test.p
 | J4 | 会话模式语义 | 单测：`new` → `[]`（独立窗口）；`auto`/`existing` → `['-r','shareMATLABSession']`（共享会话：MCP 服务器连到同一个 MATLAB，你能在窗口里看 Agent 干活） |
 | J5 | 静态质量 | `pnpm check`：typecheck 0 错、6 套测试全绿（含新增 3 例）、build 通过 |
 | J6 | 路由 | 新增 `POST /api/dsh-matlab-mcp/open-matlab`，与 `/status` `/setup` `/test` `/reconnect` 同样受 loopback + 同源校验 |
+
+---
+
+# 追加验收：0.3.x「clone 即用」与宿主加载失败修复
+
+**被测版本**：`0.3.0`（依赖内联 + 提交 `lib/`）→ **`0.3.1`**（修复宿主加载失败）
+
+| # | 验收项 | 证据 |
+|---|---|---|
+| K1 | 0.3.0 在 DSH 中加载失败（真实缺陷） | DSH 报 `matlab-mcp (dsh-matlab-mcp): failed to import`。从宿主 asar 里读出的判定逻辑：`dsh-app-boot` 的 `inactiveEntries()` 把 `entry.fiber === undefined` 归类为 `"failed to import"`，**真实异常只打到控制台** |
+| K2 | 根因定位 | `run_code` 实际运行在宿主 Electron 进程内。用与加载器相同的 `await import(file://…)` 复现真实异常：`Error: Dynamic require of "child_process" is not supported at lib/index.js:11:9`（栈：`cross-spawn` ← MCP SDK） |
+| K3 | 修复 | `build.mjs` 给宿主 bundle 注入 banner：`createRequire(import.meta.url)` 恢复 CJS 全局（`require` / `__filename` / `__dirname`） |
+| K4 | 宿主进程内验证（修复后） | `IMPORT OK -> Config,MATLAB_MCP_SETTINGS_NAMESPACE,apply,buildLaunch,inject,resolveConfig`；`resolveConfig` / `Config` / `buildLaunch` 均正常 |
+| K5 | 重启后全链路 | 应用启动 17:17:33（生效 lib 构建于 17:15:06，版本 0.3.1）→ `matlab-mcp-server-windows-x64.exe` **17:17:38** 起来（pid 35464 + watchdog 35000）→ 会话出现 14 个 `mcp__matlab__*` 工具与 32 个 MathWorks 技能 |
+| K6 | 真实 MATLAB 调用 | `mcp__matlab__evaluate_matlab_code` → `DSH-MATLAB bridge OK: 25.2.0.2998904 (R2025b)`、`sum(1:10) = 55`、`Simulink present: true` |
+| K7 | CI 守卫 | 新增「内联 CJS 必须带 CJS 全局（banner 关键字检查）」与「宿主 bundle 必须能被真实 import 且导出形状正确」两步；`lib/` 与全新构建一致性检查保留 |
+
+**教训**：「独立进程能 `import`」≠「宿主加载器能 `import`」。此后所有与加载相关的验证都放在宿主进程内（`run_code`）执行。
+
+**版本提示**：`v0.3.0` 是已知有问题的版本（能 import 但宿主加载失败），新客户端请使用 `main` / `v0.3.1` 及以上。

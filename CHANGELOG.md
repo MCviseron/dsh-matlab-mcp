@@ -7,6 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 发布
+
+- **发布准备就绪**：`npm pack` 复核通过（35 文件 / 压缩 421.9 kB；含自包含 `lib/`、`cordis.patch.yml`、README、LICENSE；`dependencies` 为空 → 安装即用、无需构建）。npm 现要求发布时提供 2FA 动态码：`npm publish --access public --registry=https://registry.npmjs.org --otp=******`（注意本机 npm 默认 registry 是只读镜像 npmmirror，必须显式指定官方源）。
+- 新增 `.github/workflows/publish.yml`：推 tag 即发布，优先走 **npm trusted publishing（OIDC，无 token、带 provenance）**；`workflow_dispatch` 可只打包不发布。首次发布因包尚不存在，需手动 `--otp` 完成，之后在 npmjs.com 配置 Trusted Publisher 即可交给 CI。
 ## [0.7.1] - 2026-10-14
 
 ### 修复

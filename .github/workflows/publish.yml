@@ -1,0 +1,81 @@
+# Publish to npm.
+#
+# Two ways to authenticate, in order of preference:
+#
+#  1. **Trusted publishing (OIDC)** — no token, no OTP, and npm signs a
+#     provenance attestation linking the tarball to this repo and workflow.
+#     Requires a one-time setup on npmjs.com:
+#       package → Settings → Trusted Publisher → GitHub Actions
+#       Organization/user: MCviseron   Repository: dsh-matlab-mcp
+#       Workflow filename: publish.yml   Environment: (leave empty)
+#     NOTE: the package must already exist on npm before a trusted publisher can
+#     be configured — the *first* release is therefore published manually with
+#     `npm publish --otp=…`, and every release after that can come from here.
+#
+#  2. **NPM_TOKEN secret** — a granular access token with "bypass 2FA" enabled,
+#     stored as the repository secret NPM_TOKEN. npm is restricting bypass-2FA
+#     tokens for direct publishing, so treat this as the fallback.
+#
+# Usage: push a tag (`git tag v0.7.2 && git push origin v0.7.2`) or run this
+# workflow manually (dry-run packs without publishing).
+name: publish
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      dry-run:
+        description: 'Package only, do not publish'
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+  id-token: write # OIDC: trusted publishing + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+          cache: pnpm
+
+      # Trusted publishing needs an npm that speaks OIDC (>= 11.5).
+      - name: Use a recent npm
+        run: npm install -g npm@latest
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check
+
+      - name: The git tag must match package.json
+        run: |
+          node -e "
+            const v = require('./package.json').version;
+            const tag = process.env.GITHUB_REF_NAME ?? '';
+            if (tag.startsWith('v') && tag.slice(1) !== v) {
+              console.error('tag ' + tag + ' does not match package.json ' + v);
+              process.exit(1);
+            }
+            console.log('version ' + v + ' (tag ' + (tag || 'none') + ')');
+          "
+
+      - name: Pack only (dry run)
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.dry-run }}
+        run: npm pack --dry-run
+
+      - name: Publish
+        if: ${{ github.event_name == 'push' || !inputs.dry-run }}
+        run: npm publish --access public --provenance
+        env:
+          # Only used when no trusted publisher is configured; OIDC wins when it is.
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

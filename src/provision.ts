@@ -43,6 +43,12 @@ const run = promisify(execFile)
 /** Progress sink: the Host route forwards these lines to the settings card. */
 export type ProvisionLogger = (message: string) => void
 
+/** Where an artifact came from, for the setup log (local beats mirror beats direct). */
+function sourceSuffix(result: { local: boolean; mirrored: boolean }): string {
+  if (result.local) return ', 本地目录 / local'
+  return result.mirrored ? ', 镜像 / via mirror' : ''
+}
+
 export interface ToolkitState {
   name: string
   repo: string
@@ -162,7 +168,7 @@ export async function ensureBinary(policy: DownloadPolicy, log: ProvisionLogger,
       + '\n常见原因：杀毒软件隔离了它（把该目录加入白名单后重试）/ usual cause: antivirus quarantine of the fresh executable.',
     )
   }
-  log('已下载 MCP 服务器 / MCP server downloaded: v' + probe.version + ' (' + result.bytes + ' bytes' + (result.mirrored ? ', via mirror' : '') + ')')
+  log('已下载 MCP 服务器 / MCP server downloaded: v' + probe.version + ' (' + result.bytes + ' bytes' + sourceSuffix(result) + ')')
   return { path: target, version: probe.version, downloaded: true }
 }
 
@@ -181,7 +187,7 @@ export async function ensureToolbox(policy: DownloadPolicy, log: ProvisionLogger
       if (!await hasMagic(path, ZIP_MAGIC)) throw new Error('not an .mltbx package (zip magic missing)')
     },
   })
-  log('已下载 MATLAB 端工具箱 / MATLAB toolbox downloaded (' + result.bytes + ' bytes' + (result.mirrored ? ', via mirror' : '') + ')')
+  log('已下载 MATLAB 端工具箱 / MATLAB toolbox downloaded (' + result.bytes + ' bytes' + sourceSuffix(result) + ')')
   return { path: target, downloaded: true }
 }
 

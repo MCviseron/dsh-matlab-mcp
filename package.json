@@ -1,6 +1,6 @@
 {
   "name": "dsh-matlab-mcp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "description": "DeepSeek Harness (DSH) plugin — connects DSH to MATLAB and Simulink through the official MathWorks MATLAB MCP Server, injects MATLAB/Simulink Agentic Toolkit skills, and provisions everything with one click.",
   "license": "Apache-2.0",
   "author": {
@@ -65,7 +65,7 @@
   "scripts": {
     "build": "node build.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "node --experimental-strip-types test/config-values.test.ts && node --experimental-strip-types test/download.test.ts && node --experimental-strip-types test/paths.test.ts && node --experimental-strip-types test/server-args.test.ts && node --experimental-strip-types test/skills.test.ts && node --experimental-strip-types test/matlab-processes.test.ts",
+    "test": "node --experimental-strip-types test/config-values.test.ts && node --experimental-strip-types test/download.test.ts && node --experimental-strip-types test/local-assets.test.ts && node --experimental-strip-types test/paths.test.ts && node --experimental-strip-types test/server-args.test.ts && node --experimental-strip-types test/skills.test.ts && node --experimental-strip-types test/matlab-processes.test.ts",
     "check": "pnpm typecheck && pnpm test && pnpm build",
     "prepare": "pnpm build"
   },

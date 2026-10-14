@@ -11,11 +11,11 @@
  * went from working to 0.03 MB/s within hours while `gh-proxy.com` held
  * 2.5–9.5 MB/s), so the policy carries an **ordered list**, not one URL.
  */
-import { mkdir, rename, rm, stat } from 'node:fs/promises'
-import { dirname } from 'node:path'
+import { copyFile, mkdir, rename, rm, stat } from 'node:fs/promises'
+import { dirname, join } from 'node:path'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
-import { createWriteStream } from 'node:fs'
+import { createWriteStream, existsSync } from 'node:fs'
 
 /**
  * Default mirrors, fastest first. Measured 2026-10-14 from the target machine
@@ -40,6 +40,13 @@ export interface DownloadPolicy {
   allowMirror: boolean
   /** One template or several; omitted means {@link DEFAULT_MIRRORS}. */
   mirrors?: string | readonly string[] | undefined
+  /**
+   * A directory laid out like the GitHub paths (exactly what
+   * `scripts/mirror-assets.mjs` produces). When an artifact is present there it
+   * is copied and **no network source is contacted at all** — that is the
+   * "keep the artifacts next to the plugin" deployment.
+   */
+  localDir?: string | undefined
 }
 
 /** One attempted source, kept for the failure report. */
@@ -174,23 +181,68 @@ export interface DownloadResult {
   path: string
   bytes: number
   mirrored: boolean
+  /** True when the artifact came from `policy.localDir` instead of the network. */
+  local: boolean
 }
 
 /**
- * Download one artifact through every allowed source, in plan order. A mirror
- * that is disabled is never contacted: the direct failure is reported as
- * {@link MirrorDisabledError} so the UI can tell the user exactly which switch
- * to flip.
+ * Where an artifact for `url` lives inside a local asset directory: the GitHub
+ * pathname under the directory root, which is how the mirror tree is laid out.
+ */
+export function localAssetPath(localDir: string, url: string): string {
+  return join(localDir, new URL(url).pathname.replace(/^\//, ''))
+}
+
+/**
+ * Copy one artifact out of the local asset directory, validated on the staged
+ * copy exactly like a download. Returns `undefined` when the file is absent so
+ * the caller can fall through to the network plan.
+ */
+async function copyFromLocalDir(source: string, target: string, validate?: (path: string) => Promise<void> | void): Promise<number | undefined> {
+  if (!existsSync(source)) return undefined
+  await mkdir(dirname(target), { recursive: true })
+  const partial = target + '.partial'
+  await rm(partial, { force: true })
+  try {
+    await copyFile(source, partial)
+    const written = await stat(partial)
+    if (written.size === 0) throw new Error('local asset is empty: ' + source)
+    if (validate !== undefined) await validate(partial)
+    await rename(partial, target)
+    return written.size
+  } catch (error) {
+    await rm(partial, { force: true }).catch(() => {})
+    throw error
+  }
+}
+
+/**
+ * Resolve one artifact from the sources allowed by the policy, in order:
+ * the local asset directory first (if configured and populated), then the
+ * network plan. A mirror that is disabled is never contacted: the direct
+ * failure is reported as {@link MirrorDisabledError} so the UI can tell the
+ * user exactly which switch to flip.
  */
 export async function downloadWithFallback(url: string, target: string, policy: DownloadPolicy, options: DownloadOptions = {}): Promise<DownloadResult> {
   const timeoutMs = options.timeoutMs ?? 600_000
+  const localDir = policy.localDir?.trim()
+  if (localDir !== undefined && localDir !== '') {
+    const source = localAssetPath(localDir, url)
+    options.log?.('本地制品 / local asset: ' + source)
+    const bytes = await copyFromLocalDir(source, target, options.validate)
+    if (bytes !== undefined) {
+      options.log?.('取自本地目录 / copied from the local asset directory')
+      return { url: 'local:' + source, path: target, bytes, mirrored: false, local: true }
+    }
+    options.log?.('本地目录没有该制品，转网络 / not present locally, falling back to the network')
+  }
   const plan = downloadPlan(url, policy)
   const attempts: DownloadAttempt[] = []
   for (const source of plan) {
     options.log?.('下载 / downloading: ' + source)
     try {
       const bytes = await fetchToFile(source, target, timeoutMs, options.signal, options.validate)
-      return { url: source, path: target, bytes, mirrored: source !== url }
+      return { url: source, path: target, bytes, mirrored: source !== url, local: false }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
       attempts.push({ url: source, error: message })

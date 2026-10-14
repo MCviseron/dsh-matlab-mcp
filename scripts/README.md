@@ -6,6 +6,7 @@
 |---|---|---|
 | `install.mjs` | **新客户端一键安装**：装依赖→建联接→写 profile→修复失效联接 | `node scripts/install.mjs [--dry-run] [--profile web]` |
 | `mirror-assets.mjs` | **自建镜像**：抓齐全部制品，产出可上传的静态目录树 + `mirror.json`(sha256) + nginx 片段 | `node scripts/mirror-assets.mjs --out D:\mirror --base-url https://dl.你的域名/matlab [--via https://gh-proxy.com/{url}]` |
+| `proxy-config.mjs` | **服务器反代配置生成**：输出覆盖 github/codeload/release-assets 三段上游的 nginx 片段 + 镜像行 | `node scripts/proxy-config.mjs --host dl.你的域名 [--prefix mp] [--static-dir /srv/matlab-assets] [--out proxy.conf]` |
 | `plugin-probe.ts` | 用插件自己的模块做一次真实探测：供给状态 + MCP 握手列出工具 | `node --experimental-strip-types scripts/plugin-probe.ts` |
 | `open-matlab.ts` | 聊天主界面按钮的等价验证：以 detached 方式打开 MATLAB 桌面，并确认它不属于插件清理范围 | `node --experimental-strip-types scripts/open-matlab.ts [new\|auto\|existing]` |
 | `setup.ts` | 跑一遍供给流程（二进制/工具箱/技能仓 + 可选 MATLAB 侧安装），并列出带扩展文件的工具数 | `node --experimental-strip-types scripts/setup.ts [--mirror] [--matlab]` |

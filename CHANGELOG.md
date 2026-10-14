@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.6.0] - 2026-10-14
+
+### 新增
+
+- **服务器反代配置生成器 `scripts/proxy-config.mjs`**：输出可直接粘贴的 nginx 片段（三段上游 + 缓存 + Range 透传 + 安全限制）与对应的 DSH 镜像行，适合「不占磁盘、配置即用」的部署。
+  - 实测跳转链决定了配置形态：`…/releases/latest/download/X` → **github.com**（同主机换 tag）→ **release-assets.githubusercontent.com**（19.5 MB 二进制终态）；`…/archive/refs/heads/main.zip` → **codeload.github.com**。nginx 不跟随跳转，因此 `codeload` 与 `release-assets` 各需独立 `location` **并**用 `proxy_redirect` 把跳转留在代理内，否则客户端会绕过代理直连 GitHub CDN。
+  - 生成的配置默认包含 `limit_except GET HEAD` 与 `client_max_body_size 1m` 以**避免开放代理**，并加 `X-Mirror-Cache` 便于验证缓存命中。
+- **本地制品目录 `localAssetsDir`**（可选、完全离线）：命中 `mirror-assets.mjs` 产出的目录树时**直接复制、零网络请求**；优先级 本地目录 → 镜像列表 → 直连。适合内网/断网机器与「一次拷贝、多机复用」。
+
+### 变更
+
+- 供给日志区分来源：`本地目录 / local`、`镜像 / via mirror` 或直连。
+
 ## [0.5.0] - 2026-10-14
 
 ### 新增
@@ -134,7 +147,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.6.0...HEAD
+[0.6.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.1...v0.4.0
 [0.3.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.3.0...v0.3.1

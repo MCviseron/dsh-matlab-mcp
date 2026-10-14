@@ -52,6 +52,7 @@ export interface MatlabMcpConfig {
   toolCallTimeoutMs?: number
   allowMirrorDownload?: boolean
   downloadMirror?: string
+  localAssetsDir?: string
   telemetry?: boolean
   shutdownMatlabOnUnload?: boolean
 }
@@ -70,6 +71,7 @@ export interface ResolvedConfig {
   toolCallTimeoutMs: number
   allowMirrorDownload: boolean
   downloadMirror: string
+  localAssetsDir: string
   telemetry: boolean
   shutdownMatlabOnUnload: boolean
 }
@@ -91,6 +93,7 @@ export const Config = z.object({
   toolCallTimeoutMs: z.number().min(1000).max(1_800_000).default(600_000).volatile(),
   allowMirrorDownload: z.boolean().default(false).volatile(),
   downloadMirror: z.string().default(DEFAULT_MIRRORS_VALUE).volatile(),
+  localAssetsDir: z.string().default('').volatile(),
   telemetry: z.boolean().default(false).volatile(),
   shutdownMatlabOnUnload: z.boolean().default(true).volatile(),
 })
@@ -111,6 +114,7 @@ export function resolveConfig(config: MatlabMcpConfig | undefined): ResolvedConf
     toolCallTimeoutMs: numberField(source.toolCallTimeoutMs, 600_000),
     allowMirrorDownload: booleanField(source.allowMirrorDownload, false),
     downloadMirror: stringField(source.downloadMirror, DEFAULT_MIRRORS_VALUE).trim() || DEFAULT_MIRRORS_VALUE,
+    localAssetsDir: stringField(source.localAssetsDir, '').trim(),
     telemetry: booleanField(source.telemetry, false),
     shutdownMatlabOnUnload: booleanField(source.shutdownMatlabOnUnload, true),
   }
@@ -361,7 +365,7 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
   const runSetupWithConfig = async (log: ProvisionLogger): Promise<SetupResult> => {
     const active = resolved()
     const result = await runSetup({
-      policy: { allowMirror: active.allowMirrorDownload, mirrors: active.downloadMirror },
+      policy: { allowMirror: active.allowMirrorDownload, mirrors: active.downloadMirror, localDir: active.localAssetsDir === '' ? undefined : active.localAssetsDir },
       matlabRoot: active.matlabRoot === '' ? undefined : active.matlabRoot,
       workingFolder: active.initialWorkingFolder === '' ? undefined : active.initialWorkingFolder,
       installToolboxInto: true,

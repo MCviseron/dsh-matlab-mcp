@@ -177,6 +177,48 @@ downloadMirror: "https://dl.你的域名/matlab-mirror{path},https://gh-proxy.co
 
 > 许可提示：放到**自己的服务器供自己使用**属私有使用；发布到公共 registry 或公开站点则构成再分发，需遵守 MathWorks 许可证（保留版权与许可声明、仅用于配合 MathWorks 产品）。
 
+### 服务器反代（不占磁盘，配置即用）
+
+不想上传 38 MB？也可以让服务器**实时反代** GitHub 并缓存。生成配置：
+
+```powershell
+node scripts/proxy-config.mjs --host dl.你的域名 --prefix mp --static matlab-static --static-dir /srv/matlab-assets
+```
+
+它会打印完整 nginx 片段 + 要粘贴进 DSH 的镜像行。**实测到的跳转链决定了配置必须覆盖三个上游**：
+
+```
+github.com/…/releases/latest/download/X  →302 github.com/…/releases/download/vX/X
+                                         →302 release-assets.githubusercontent.com/…   ← 19.5 MB 的二进制
+github.com/…/archive/refs/heads/main.zip →302 codeload.github.com/…                   ← 两个技能仓
+```
+
+nginx **不会跟随跳转**，所以 `codeload` 与 `release-assets` 各自需要独立 `location` **加上** `proxy_redirect` 重写；否则客户端会拿到原始 302、绕过你的代理直连 GitHub CDN（那就白搭了）。生成器已包含这三段，并保留 `Range` 头（「镜像测速」要用）。
+
+粘贴到 DSH 的镜像行（前者静态目录放 exe/mltbx，后者反代技能仓；只想要反代就删掉前半段）：
+
+```yaml
+allowMirrorDownload: true
+downloadMirror: "https://dl.你的域名/matlab-static{path},https://dl.你的域名/mp/{path}"
+```
+
+**部署与安全**
+
+- 独立配置文件（如 `/etc/nginx/conf.d/matlab-proxy.conf`）+ `nginx -t && systemctl reload nginx`，不影响其它服务；
+- `proxy_cache_path` 那行放到 `http { }` 作用域；缓存上限用 `max_size` 控制（默认 2g）；
+- ⚠️ 配置里必须保留 `limit_except GET HEAD` 与 `client_max_body_size 1m` —— **不加就是开放代理**，会被刷流量甚至连累你的 IP 被限流；
+- 缓存命中看响应头 `X-Mirror-Cache: HIT`（配置里已加）：第一次回源、之后走缓存。
+
+### 完全离线：本地制品目录（可选）
+
+把 `mirror-assets.mjs` 产出的目录放到任意路径（共享盘、U 盘、内网目录均可），在 profile 的 `cordis.patch.yml` 里配置：
+
+```yaml
+localAssetsDir: D:\matlab-mirror      # 目录里存在该制品 → 直接复制，一个网络请求都不发
+```
+
+优先级：**本地目录 → 镜像列表 → 直连**。适合内网/断网机器，也适合「一次拷贝、多机复用」。
+
 ## 配置项
 
 | 字段 | 默认 | 说明 |
@@ -192,6 +234,7 @@ downloadMirror: "https://dl.你的域名/matlab-mirror{path},https://gh-proxy.co
 | `skillGroups` | `""` | 逗号分隔的技能组；留空 = 默认组；`none` = 全部关闭 |
 | `toolCallTimeoutMs` | `600000` | 单次工具调用超时（10 分钟）；上限 30 分钟 |
 | `allowMirrorDownload` | `false` | **默认关闭**；直连失败时才用镜像下载官方制品 |
+| `localAssetsDir` | `""` | 本地制品目录（`mirror-assets.mjs` 产出的那种布局）。命中即**直接复制、零网络请求**；优先级 本地 → 镜像 → 直连 |
 | `downloadMirror` | `https://gh-proxy.com/{url},https://gh.llkk.cc/{url},https://ghproxy.net/{url}` | 镜像**列表**（逗号分隔，按顺序回退）。模板：`{url}` 前缀式、`{path}` 换主机式，老的纯前缀写法仍兼容。开启开关后镜像优先、直连兜底 |
 | `telemetry` | `false` | 关闭时传 `--disable-telemetry=true` 给 MCP 服务器 |
 | `shutdownMatlabOnUnload` | `true` | 插件卸载时关闭**由本插件启动**的 MATLAB（按父子进程归属判定） |

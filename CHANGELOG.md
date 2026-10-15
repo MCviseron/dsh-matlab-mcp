@@ -7,6 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-15
+
+### 新增
+
+- **README 封面图**（`docs/cover.jpg`）：一份 hero 图，把「让 Agent 真正动手操作 MATLAB 与 Simulink」、14 个工具 / 32 个技能、一行安装命令与 Simulink 工作流可视化了。中文与英文 README 均置于页首；随 npm 包发布（`docs/` 在 `files` 内），因此 npm 页也会显示。
+
+### 文档
+
+- `docs/release.md` 补两节：**可复现构建**（esbuild 把内联模块物理路径写进产物注释 → 跨机器字节不同；已由 `build.mjs` 剥离）与**在拿不到 Actions 日志时定位 CI 失败**（拆具名步骤 + `::error::` 注解，注解可用公开 API 读取）。
+- README 排障表补三条实测坑：`ERR_PNPM_UNEXPECTED_STORE`（profile 树是全局 pnpm 10 装的、DSH 运行时是 pnpm 11，store 版本打架）及其完整修复命令（无 TTY 需 `confirmModulesPurge=false`；`CI=true` 会顺带打开 `--frozen-lockfile`）；以及「**插件突然不加载**」—— 插件管理器的卸载会**先删掉 `dsh.profile.bundles` 记录再跑 pnpm**，pnpm 失败时插件就静默消失。
 ## [0.7.3] - 2026-10-15
 
 ### 修复
@@ -192,7 +202,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.1...v0.7.2
 [0.7.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.0...v0.7.1

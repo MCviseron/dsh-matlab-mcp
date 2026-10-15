@@ -1,3 +1,5 @@
+![dsh-matlab-mcp — let the agent actually drive MATLAB and Simulink](docs/cover.jpg)
+
 # dsh-matlab-mcp
 
 [中文](README.md) | **English**

@@ -1,3 +1,5 @@
+![dsh-matlab-mcp —— 让 Agent 真正动手操作 MATLAB 与 Simulink](docs/cover.jpg)
+
 # dsh-matlab-mcp
 
 **中文** | [English](README.en.md)

@@ -73,6 +73,25 @@ npx --yes npm@12 unpublish dsh-matlab-mcp@0.0.0-stage --registry=https://registr
 
 之后推 tag 即自动发布：`.github/workflows/publish.yml` 会先 `pnpm check`、校验 tag 与 `package.json` 版本一致，再 `npm publish --provenance`（OIDC，无 token，带来源证明）。手动触发该 workflow 默认只 `npm pack --dry-run`。
 
+## 发布被拒：npm 账号冻结 / 403 / 2FA
+
+npm 账号可能被临时冻结（例如安全事件后的 72 小时冻结期）。症状是 `npm publish` 返回 403 或提示账号受限；
+**只读操作不受影响**（`npm view`、CI 的 `npm pack` 都能正常跑）。
+
+处理原则：
+
+1. **只读检查照常**：`npm view dsh-matlab-mcp version --registry=https://registry.npmjs.org` 用于确认线上版本。
+2. **发布被拒不要反复重试**：回退刚推的 tag，保持 main 已提交、无悬挂 tag：
+
+   ```bash
+   git tag -d v<version>
+   git push origin :refs/tags/v<version>
+   ```
+
+3. **登记待发版本**：写 `docs/release-pending.md`（版本、原因、预计可发时间）。下一次周检任务会先读它，
+   过期后自动补发（打 tag → 推 → 确认 npm → 删除该文件）。
+4. **不要为此重复 bump 版本号**；冻结解除后直接用已提交的那个版本发布。
+
 ## 产物与版本约定
 
 - **npm 版本 = git tag = `package.json` 版本**（CI 强制校验）

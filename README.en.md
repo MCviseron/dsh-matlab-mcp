@@ -17,6 +17,26 @@ you ──natural language──▶ DSH agent
                            └─ system-prompt guidance (call rules, timeouts, figure export, Simulink tool preference)
 ```
 
+## Contents
+
+- [Features](#features)
+- [Upstream components](#upstream-components)
+- [Requirements](#requirements)
+- [Install](#install)
+- [Artifact sources](#artifact-sources)
+- [Configuration](#configuration)
+- [Tools and skills](#tools-and-skills)
+- [Skills injection](#skills-injection)
+- [Usage examples](#usage-examples)
+- [Troubleshooting](#troubleshooting)
+- [Uninstall](#uninstall)
+- [Acceptance](#acceptance)
+- [Development](#development)
+- [Versioning](#versioning)
+- [License and trademarks](#license-and-trademarks)
+
+---
+
 ## Features
 
 | Capability | Detail |
@@ -124,34 +144,95 @@ The plugin downloads the MathWorks artifacts straight from GitHub by default. A 
 - Default skill groups (32 skills): `matlab-core`, `matlab-programming`, `matlab-software-development`, `matlab-data-import-and-analysis`, `model-based-design-core`, `simulink-simulation`. Add other group names to `skillGroups` to enable more (for example `matlab-app-building`, `ai-and-statistics`, `verification-validation-and-test`).
 - Skill text is MathWorks content, unmodified; it is downloaded at install time and never redistributed by this repository.
 
+## Skills injection
+
+Skills come from the two official repositories under `skills-catalog/<group>/<skill>/SKILL.md` and are registered through `ctx.skills.registerProvider`, so they load on demand with the standard `skill` tool (no standing context cost). Default groups (32 skills):
+
+| Group | Skills | Contents |
+|---|---|---|
+| `matlab-core` | 6 | Debugging, code review, live scripts, documentation lookup, product install/list |
+| `matlab-programming` | 1 | Robust functions with argument validation |
+| `matlab-software-development` | 11 | Testing, performance/memory optimisation, docs, toolbox packaging, project and build plans |
+| `matlab-data-import-and-analysis` | 4 | Tables/timetables/large-data strategies, credential hygiene |
+| `model-based-design-core` | 11 | Modelling, simulation, requirement drafts, model sanitising, bug reports |
+| `simulink-simulation` | 3 | Simulation inputs, SDI runs, batch simulation |
+
+Set `skillGroups` to other group names to enable them (e.g. `matlab-app-building`, `ai-and-statistics`, `verification-validation-and-test`). The skill text is MathWorks original content; this plugin does not modify it.
+
+## Usage examples
+
+After installation just talk to the agent, e.g.:
+
+- "Use MATLAB to compute the eigenvalues of this matrix and write them to a CSV in the current project".
+- "Plot the step response for damping ratios 0.1–1.0 and export a PNG so I can look at it".
+- "Build a Simulink model of a PID-controlled second-order plant, simulate 10 s, report overshoot and steady-state error".
+- "Check code-analyzer issues across every .m file in my project".
+
+The agent will `detect_matlab_toolboxes` first, load the matching skill when needed, run code through `evaluate_matlab_code`/`run_matlab_file`, export figures with `exportgraphics` before looking at them, and prefer the `model_*` tools for Simulink work.
+
 ## Troubleshooting
 
 | Symptom | Cause / fix |
 |---|---|
 | Error code `MIRROR_DISABLED` | Direct GitHub download failed and the mirror is off. Turn on "Allow mirror download" and retry |
-| No `mcp__matlab__*` tools | The runtime is not provisioned yet. Press "Install / repair" |
+
+| Startup log: `matlab-mcp (dsh-matlab-mcp): failed to import` | The plugin entry failed to load. ① Your checkout is 0.2.x or older (back then `lib/` was not committed) → `git pull` to 0.3.0+ which ships `lib/`; ② the profile `node_modules` link is broken (next row); ③ you edited `src/` without re-running `pnpm build`. `node scripts/install.mjs` fixes the wiring in one go |
+| Startup log: several plugins fail to activate/import at once | The `link:` entries in the profile `node_modules` are broken (pnpm produces an invalid junction for a cross-drive `link:D:/...`, pointing at `C:\...\profiles\<p>\D:\...`). Repair each with `mklink /J <profile>\node_modules\<plugin> <real dir>`, or just rerun `node scripts/install.mjs` (it repairs all of them) || No `mcp__matlab__*` tools | The runtime is not provisioned yet. Press "Install / repair" |
 | The first call takes 20–45 s | MATLAB cold start; later calls are fast |
 | Tool call times out | Raise `toolCallTimeoutMs`, or turn a long job into a script plus a results file |
 | Simulink tools report a missing function | The path-registration step did not run (it is skipped when `simulinkTools` is off); enable it and re-run setup |
+| A MATLAB you opened by hand got closed | That should never happen: only MATLAB processes descending from **this plugin's** MCP server are stopped. If you see it, please open an issue |
 | Logs | MCP server logs live in `$DSH_HOME/matlab-mcp/logs/`; "Refresh status" in the settings card shows binary version, MATLAB root and artifact presence |
 | Installs are very slow / stuck | Use the **mirror speed test** in the settings card, then "put the fastest first". Mirror sites often live for only a few hours (measured: `ghproxy.net` fell from usable to 0.03 MB/s within hours), so the default list goes stale |
 | `ERR_PNPM_UNEXPECTED_STORE` when installing or removing the plugin (…linked from …store\v10 … pnpm now wants …store\v11) | The profile `node_modules` was linked by the global pnpm 10.x (`storeDir` in `node_modules/.modules.yaml`), while the DSH runtime ships pnpm 11.x, so the two disagree. Either use the pnpm matching that tree (`pnpm store path` reports the recorded store), or relink the whole tree with the runtime pnpm: `node "<DSH_HOME>/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm/bin/pnpm.mjs" install --no-frozen-lockfile --config.confirmModulesPurge=false` (without a TTY pnpm aborts on the modules purge; `CI=true` also switches on `--frozen-lockfile`). Afterwards use only that pnpm or the DSH UI inside this profile |
 | The plugin silently stops loading after a restart | Check `dsh.profile.bundles` in the profile `package.json` for the plugin name. The DSH plugin manager removes the bundle entry **before** running pnpm, so a failed uninstall leaves the plugin gone while the error only lives in `.plugin-manager/logs/operation-*/pnpm.log`. Re-add the entry and reinstall |
 | The client crashes and writes `crash-*-host.log` with `spawn … ENOENT` | `ENOENT` does **not** mean the file is missing — libuv reports it when the child `cwd` does not exist. Since 0.4.0 the plugin creates the working folder and pre-flights the binary; on 0.3.x run `mkdir "%USERPROFILE%\.dsh\matlab-mcp\workspace"` and retry. The crash itself is a DSH-side robustness bug (an uncaught spawn error terminates the host) |
 
+## Uninstall
+
+1. Turn off `enabled` in the settings card (the MCP client is disposed and skills/tools unregister immediately);
+2. Remove `dsh-matlab-mcp` from the profile `package.json` (`dependencies` and `dsh.profile.bundles`) and from `cordis.patch.yml`, then `pnpm install` and restart DSH;
+3. Delete `$DSH_HOME\matlab-mcp` (cache, ~70 MB: binary, toolbox package, skill repositories);
+4. To clean up the MATLAB side as well: run `matlab.addons.toolbox.uninstallToolbox(...)` for the MATLAB MCP Server Toolbox and drop the Simulink toolkit path with `rmpath` + `savepath`.
+
 ## Acceptance
 
-Item-by-item acceptance with raw evidence lives in [`docs/acceptance-2026-10-14.md`](docs/acceptance-2026-10-14.md) (typecheck/tests/build, MCP handshake, MATLAB execution, Simulink simulation, skills, idempotent setup, process cleanup).
+Item-by-item acceptance with **raw evidence** (command output, tool returns, screenshots) lives in [`docs/acceptance-2026-10-14.md`](docs/acceptance-2026-10-14.md), and the DSH-compatibility acceptance in [`docs/acceptance-2026-10-17-dsh-021.md`](docs/acceptance-2026-10-17-dsh-021.md).
+
+| # | Item | Pass criteria |
+|---|---|---|
+| A | Static quality | `pnpm typecheck && pnpm test && pnpm build` all green; the plugin loads without errors |
+| B | Bridge | `mcp__matlab__detect_matlab_toolboxes` reports R2025b + Simulink |
+| C | Code execution | Natural language computes `sum(1:10)`=55; a figure exports to PNG and is visually verified |
+| D | Simulink simulation | A script builds the model and `sim()` returns results, with no manual clicking |
+| E | Simulink tools | `model_overview`/`model_read`/`model_scan` return structured results |
+| F | Skills | Skills appear in the catalog, `skill()` loads them, behaviour follows the guidance |
+| G | Zero manual steps | Wipe the cache, one-click install, then B–F reproduce |
+| H | Stability | Setup is idempotent, uninstall leaves nothing behind, no orphan MATLAB processes |
+| I | Docs | This README, `docs/tools.md`, CHANGELOG, acceptance records, re-runnable `scripts/` |
 
 ## Development
 
 ```bash
 pnpm install
 pnpm typecheck   # tsc --noEmit
-pnpm test        # 5 pure-logic suites: config unwrapping, download policy, path detection, launch args, skill parsing
+pnpm test        # 7 pure-logic suites: config unwrapping, download policy, local assets, path detection, launch args, skills, MATLAB process ownership
 pnpm build       # esbuild → lib/index.js (host) + lib/client.js (browser settings card)
 pnpm check       # all three
 ```
+
+| File | Responsibility |
+|---|---|
+| `src/index.ts` | Cordis plugin entry: config schema, mount/remount lifecycle, routes, 「Open MATLAB」 |
+| `src/provision.ts` | Provisioning: binary, MATLAB toolbox package, two skill repos, setup orchestration |
+| `src/download.ts` | Download policy: mirror list/templates, local asset dir, staged validation, mirror speed test |
+| `src/paths.ts` | `$DSH_HOME` layout, MATLAB root detection (per-platform path rules), asset names |
+| `src/server-args.ts` | The exact argument vector and child environment handed to the official MCP server |
+| `src/selftest.ts` | `--version` probe / MCP handshake used by the pre-flight and the settings card |
+| `src/skills-catalog.ts` + `src/skills-provider.ts` | Skill discovery, group filtering, `registerProvider` |
+| `src/matlab-processes.ts` | MATLAB ownership by parentage: close only our own on unload, open the desktop on demand |
+| `src/routes.ts` | HTTP routes behind the settings card (status/setup/test/reconnect/diagnostics/open-matlab/mirrors) |
+| `src/client/*` | Browser half: settings card, header button, locales, snapshot stores |
 
 ## Versioning
 

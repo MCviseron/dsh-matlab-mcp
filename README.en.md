@@ -32,6 +32,7 @@ you ──natural language──▶ DSH agent
 | No manual operation | Default `sessionMode=new`: the plugin starts MATLAB itself (desktop visible) and you just talk to the agent |
 | Network fallback | Optional mirror for blocked networks (**off by default**; only used after a direct failure, with PE/ZIP magic verification) |
 | Process hygiene | On unload the plugin stops the MATLAB **it** started (decided by process parentage); a MATLAB you opened yourself is never touched |
+| Multi-session / parallel | **One DSH process = one MATLAB**: several conversations inside the same DSH share that MATLAB (base workspace, `cd`, loaded models — a long simulation blocks the others). For real parallelism open **two DSH instances** and keep `sessionMode=new`; do not use `auto`/`existing` in both. See [docs/sessions.md](docs/sessions.md) |
 
 ## Upstream components
 
@@ -112,7 +113,8 @@ The plugin downloads the MathWorks artifacts straight from GitHub by default. A 
 | `skillGroups` | `""` | Comma separated; empty = default groups; `none` disables all |
 | `toolCallTimeoutMs` | `600000` | Per tool call; max 1800000 |
 | `allowMirrorDownload` | `false` | Off by default; enables the mirror only after a direct failure |
-| `downloadMirror` | `https://ghproxy.net/` | Mirror prefix; used only when the switch is on |
+| `localAssetsDir` | `""` | Local artifact directory (the layout `mirror-assets.mjs` produces). A hit is **copied locally with zero network**; priority local → mirror → direct |
+| `downloadMirror` | `https://gh-proxy.com/{url},https://gh.llkk.cc/{url},https://ghproxy.net/{url}` | Mirror **list** (comma separated, tried in order). Templates: `{url}` prefix style, `{path}` host-replacement style; a bare prefix is still accepted. With the switch on, mirrors go first and direct is the fallback |
 | `telemetry` | `false` | Off passes `--disable-telemetry=true` |
 | `shutdownMatlabOnUnload` | `true` | Stop the MATLAB started by this plugin's MCP server on unload |
 
@@ -132,6 +134,10 @@ The plugin downloads the MathWorks artifacts straight from GitHub by default. A 
 | Tool call times out | Raise `toolCallTimeoutMs`, or turn a long job into a script plus a results file |
 | Simulink tools report a missing function | The path-registration step did not run (it is skipped when `simulinkTools` is off); enable it and re-run setup |
 | Logs | MCP server logs live in `$DSH_HOME/matlab-mcp/logs/`; "Refresh status" in the settings card shows binary version, MATLAB root and artifact presence |
+| Installs are very slow / stuck | Use the **mirror speed test** in the settings card, then "put the fastest first". Mirror sites often live for only a few hours (measured: `ghproxy.net` fell from usable to 0.03 MB/s within hours), so the default list goes stale |
+| `ERR_PNPM_UNEXPECTED_STORE` when installing or removing the plugin (…linked from …store\v10 … pnpm now wants …store\v11) | The profile `node_modules` was linked by the global pnpm 10.x (`storeDir` in `node_modules/.modules.yaml`), while the DSH runtime ships pnpm 11.x, so the two disagree. Either use the pnpm matching that tree (`pnpm store path` reports the recorded store), or relink the whole tree with the runtime pnpm: `node "<DSH_HOME>/dsh-runtimes/dsh-primary-runtime/dependencies/pnpm/bin/pnpm.mjs" install --no-frozen-lockfile --config.confirmModulesPurge=false` (without a TTY pnpm aborts on the modules purge; `CI=true` also switches on `--frozen-lockfile`). Afterwards use only that pnpm or the DSH UI inside this profile |
+| The plugin silently stops loading after a restart | Check `dsh.profile.bundles` in the profile `package.json` for the plugin name. The DSH plugin manager removes the bundle entry **before** running pnpm, so a failed uninstall leaves the plugin gone while the error only lives in `.plugin-manager/logs/operation-*/pnpm.log`. Re-add the entry and reinstall |
+| The client crashes and writes `crash-*-host.log` with `spawn … ENOENT` | `ENOENT` does **not** mean the file is missing — libuv reports it when the child `cwd` does not exist. Since 0.4.0 the plugin creates the working folder and pre-flights the binary; on 0.3.x run `mkdir "%USERPROFILE%\.dsh\matlab-mcp\workspace"` and retry. The crash itself is a DSH-side robustness bug (an uncaught spawn error terminates the host) |
 
 ## Acceptance
 

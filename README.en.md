@@ -53,6 +53,7 @@ you ──natural language──▶ DSH agent
 | Network fallback | Optional mirror for blocked networks (**off by default**; only used after a direct failure, with PE/ZIP magic verification) |
 | Process hygiene | On unload the plugin stops the MATLAB **it** started (decided by process parentage); a MATLAB you opened yourself is never touched |
 | Multi-session / parallel | **One DSH process = one MATLAB**: several conversations inside the same DSH share that MATLAB (base workspace, `cd`, loaded models — a long simulation blocks the others). For real parallelism open **two DSH instances** and keep `sessionMode=new`; do not use `auto`/`existing` in both. See [docs/sessions.md](docs/sessions.md) |
+| Bilingual UI | Settings card and documentation are maintained in Chinese and English |
 
 ## Upstream components
 
@@ -175,7 +176,7 @@ The agent will `detect_matlab_toolboxes` first, load the matching skill when nee
 | Symptom | Cause / fix |
 |---|---|
 | Error code `MIRROR_DISABLED` | Direct GitHub download failed and the mirror is off. Turn on "Allow mirror download" and retry |
-
+| `not-provisioned` / no `mcp__matlab__*` tools | The artifacts are not in place. Run "Install / repair" in the settings card (it downloads the binary + MATLAB toolbox + skill repos), or check the status row for the failing step |
 | Startup log: `matlab-mcp (dsh-matlab-mcp): failed to import` | The plugin entry failed to load. ① Your checkout is 0.2.x or older (back then `lib/` was not committed) → `git pull` to 0.3.0+ which ships `lib/`; ② the profile `node_modules` link is broken (next row); ③ you edited `src/` without re-running `pnpm build`. `node scripts/install.mjs` fixes the wiring in one go |
 | Startup log: several plugins fail to activate/import at once | The `link:` entries in the profile `node_modules` are broken (pnpm produces an invalid junction for a cross-drive `link:D:/...`, pointing at `C:\...\profiles\<p>\D:\...`). Repair each with `mklink /J <profile>\node_modules\<plugin> <real dir>`, or just rerun `node scripts/install.mjs` (it repairs all of them) || No `mcp__matlab__*` tools | The runtime is not provisioned yet. Press "Install / repair" |
 | The first call takes 20–45 s | MATLAB cold start; later calls are fast |

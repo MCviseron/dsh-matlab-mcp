@@ -7,6 +7,23 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-10-17
+
+### 新增
+
+- **DSH 兼容性工具链**：新增 `scripts/check-dsh-version.mjs`（读取已安装版本 + 更新源 + 契约指纹，输出 `up-to-date` / `widen-ranges` / `review-required` 三种结论与对应退出码 0/2/3）、`docs/dsh-compat.json`（8 个宿主入口文件的 sha256 基线）与 [`docs/dsh-compat.md`](docs/dsh-compat.md)（版本矩阵、0.2.0→0.2.1 实测差异、升级与重验证流程、真机验收清单）。
+- 任务看板「**DSH 更新与兼容性周检**」：每周日 09:00 自动运行检查；契约未变则自动放宽版本范围并发版，契约变化则汇总差异后询问维护者。
+
+### 变更
+
+- **声明支持 DSH `0.2.1-rc.2`**：`peerDependencies` 里的 4 个 `@deepseek-ai/dsh-client-*` 范围由 `^0.1.1-rc.2 || ^0.1.5-rc.2 || ^0.2.0-rc.2` 扩展为再加 `|| ^0.2.1-rc.2`。
+
+### 验证
+
+- **逐字节契约比对**：`dsh-mcp-client` / `dsh-client-ui-slots` / `dsh-client-locale` / `dsh-client-store` / `dsh-skill` / `dsh-settings` 六个入口文件在 `0.2.0-rc.2` 与 `0.2.1-rc.2` 之间**完全相同**（含我们 inline 的 MCP 挂载器）。
+- 有变化的仅 `dsh-client-ui-settings`（19+/43-，偏好持久化内部）与 `dsh-client-ui-renderer`（141+/116-，槽位渲染内部新增 `Anchor` 与缺失槽位渲染 null）——均不在本插件调用面上。
+- `dsh-mcp-client` 的挂载 `Config` 字段（`command/args/env/cwd/toolCallTimeoutMs/failOnStartupError/reconnect`）在 `0.1.5-rc.3` → `0.2.0` → `0.2.1` 三个版本中**完全一致**，`buildLaunch()` 无需改动。
+- 真机验收待你升级到 `0.2.1-rc.2` 后执行（清单见 `docs/dsh-compat.md` 第 6 节）。
 ## [0.8.0] - 2026-10-15
 
 ### 新增
@@ -202,7 +219,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.2...v0.7.3
 [0.7.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.1...v0.7.2

@@ -1,0 +1,59 @@
+{
+  "note": "本插件依赖的 DSH 宿主入口文件指纹。scripts/check-dsh-version.mjs 用它判断「我们调用的代码是否变化」。",
+  "verifiedOn": "0.2.1-rc.2",
+  "verifiedAt": "2026-10-17",
+  "verifiedAgainst": [
+    "0.2.0-rc.2（逐字节相同）",
+    "0.2.1-rc.2"
+  ],
+  "contract": {
+    "dsh-mcp-client": {
+      "file": "lib/index.js",
+      "sha256": "758d8fc473b700b5d351158d06ce9f9e92c16e8b25497b08bb7bd2122a87f5dd",
+      "bytes": 35041,
+      "purpose": "MCP 服务器挂载器（我们 inline 的就是它）"
+    },
+    "dsh-client-ui-slots": {
+      "file": "lib/index.js",
+      "sha256": "57e1314e31a2015f30231e1e7596da658f1bb5cb64c103c4cf13381647412c99",
+      "bytes": 23461,
+      "purpose": "槽位注册（按钮 + 设置卡片入口）"
+    },
+    "dsh-client-locale": {
+      "file": "lib/client.js",
+      "sha256": "bad8fe9bfb07af2a60c80933be65ceafdaab5386f404fb264401c7e540a36e16",
+      "bytes": 62953,
+      "purpose": "locale register/bind（所有文案）"
+    },
+    "dsh-client-ui-settings": {
+      "file": "lib/client.js",
+      "sha256": "0555eec2df1ca392a1167e637f287ac9963dbd2b0a230089c2a41be079c490e3",
+      "bytes": 57756,
+      "purpose": "设置页面板（设置卡片）"
+    },
+    "dsh-client-store": {
+      "file": "lib/index.js",
+      "sha256": "7272e501f184fdee890b7a04646a6d8b38a09e3d5c6599687c79eb9d87063e3f",
+      "bytes": 6321,
+      "purpose": "createSnapshotStore（卡片状态）"
+    },
+    "dsh-skill": {
+      "file": "lib/index.js",
+      "sha256": "4b88621be4e7ff09b05c175fc6dcb67e77a22e5c5570e3aa603338b2937ea791",
+      "bytes": 23721,
+      "purpose": "registerProvider（32 个技能）"
+    },
+    "dsh-settings": {
+      "file": "lib/index.js",
+      "sha256": "9432b872597b7a31473072eb38a55979ab23375c76bd1d86d751388a692a0136",
+      "bytes": 22636,
+      "purpose": "settings configure/register"
+    },
+    "dsh-client-ui-renderer": {
+      "file": "lib/client.js",
+      "sha256": "dbdb3f26bfbc1d143bc8a0eed5982a2507c4f0cf8027e7c170f3bed3604be356",
+      "bytes": 78299,
+      "purpose": "槽位渲染器（按钮宿主）"
+    }
+  }
+}

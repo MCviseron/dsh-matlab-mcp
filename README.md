@@ -53,6 +53,7 @@
 | 零手动 | 默认 `sessionMode=new`：插件自己启动 MATLAB（桌面可见），你只需要用自然语言下命令 |
 | 网络兜底 | 直连 GitHub 失败时可选用镜像（**默认关闭**，开启后仅在直连失败时启用，并校验 PE/ZIP 魔数） |
 | 进程卫生 | 插件卸载时按父子进程归属关闭**它自己启动的** MATLAB，绝不动你手动打开的那个 |
+| 多会话 / 并行 | **一个 DSH 进程 = 一个 MATLAB**：同一 DSH 里开多个对话会共用同一个 MATLAB（workspace、`cd`、已加载模型共享，长仿真会互相阻塞）。要真正并行请开**两个 DSH 实例**并保持 `sessionMode=new`；不要在两个实例里都用 `auto`/`existing`。详见 [docs/sessions.md](docs/sessions.md) |
 | 中英双语 UI | 设置卡与文档均中英对齐 |
 
 ## 架构与上游

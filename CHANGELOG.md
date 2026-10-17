@@ -7,6 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 文档
+
+- 新增 [`docs/sessions.md`](docs/sessions.md)：**多会话与并行仿真的行为说明** —— 一个 DSH 进程 = 一个 MCP server = 一个 MATLAB（附代码位置证据）；「会话」指 MATLAB 共享会话而非 DSH 对话；四种组合（同一 DSH 内多对话 / 双实例 × new / auto / existing）的干扰矩阵；「打架」的具体表现；想并行两个仿真的推荐做法；并诚实标注未实测项与「每对话一个 MATLAB」所需的上游改动。README 特性表增加对应一行。
+
 ### 变更
 
 - 定时检测改用 **DSH 官方会话定时任务**（`schedule`，id `schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`，每周日 09:00 Asia/Shanghai，绑定维护者会话），并移除任务看板里的那张卡（第三方插件）。行为不变：契约未变+peer 未覆盖 → 自动放宽并发版；契约变化 → 汇总差异询问维护者；发布被拒不重试（回退 tag + 登记待补发）。

@@ -89,5 +89,12 @@ node scripts/check-dsh-version.mjs
 
 ## 7. 定时检测
 
-任务看板上的 **「DSH 更新与兼容性周检」**：每周日 09:00 运行 `scripts/check-dsh-version.mjs`，
-按退出码执行策略 —— **契约未变→自动放宽/发版；契约变了→汇总差异来问你**。
+用**官方会话定时任务**（DSH 内置 `schedule`），绑定维护者当前会话：
+
+- id：`schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`
+- 节奏：**每周日 09:00（Asia/Shanghai）**
+- 内容：运行 `scripts/check-dsh-version.mjs`，按退出码执行 —— **契约未变 → 自动放宽/发版；契约变了 → 汇总差异来问你**；
+- 发布纪律：npm 冻结 / 403 时不重试，回退 tag 并写 `docs/release-pending.md`，下次优先补发。
+
+> 说明：会话定时任务只在 DSH 运行且该会话可用时触发；停机期间错过的那次不会补发。
+> 不依赖任何第三方插件（原先放在任务看板里的那张卡已删除）。

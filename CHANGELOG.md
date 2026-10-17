@@ -7,6 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 变更
+
+- 定时检测改用 **DSH 官方会话定时任务**（`schedule`，id `schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`，每周日 09:00 Asia/Shanghai，绑定维护者会话），并移除任务看板里的那张卡（第三方插件）。行为不变：契约未变+peer 未覆盖 → 自动放宽并发版；契约变化 → 汇总差异询问维护者；发布被拒不重试（回退 tag + 登记待补发）。
+
 ## [0.9.0] - 2026-10-17
 
 ### 新增

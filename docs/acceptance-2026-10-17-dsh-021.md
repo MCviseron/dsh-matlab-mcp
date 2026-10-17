@@ -65,7 +65,7 @@
 | `scripts/check-dsh-version.mjs` | 已安装版本 + 更新源 + 契约指纹 → `compatible` / `widen-ranges` / `review-required`，退出码 0/2/3；`--json` / `--channel` / `--app-dir` / `--no-download`；本地缓存 |
 | `docs/dsh-compat.json` | 8 个入口文件的 sha256 基线 |
 | `docs/dsh-compat.md` | 版本矩阵、差异结论、升级与重验证流程、真机验收清单 |
-| 任务看板「DSH 更新与兼容性周检」 | cron `0 9 * * 0`（每周日 09:00），task id `31a32e59-f3f9-43a7-9083-6d849bfd48f5`；契约未变+peer 未覆盖 → 自动放宽并补丁发版；契约变化 → 汇总差异询问维护者；**发布被拒不重试，回退 tag 并登记 `docs/release-pending.md`** |
+| 官方会话定时任务「DSH 更新与兼容性周检」 | `schedule` id `schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`，每周日 09:00（Asia/Shanghai），绑定维护者会话；契约未变+peer 未覆盖 → 自动放宽并补丁发版；契约变化 → 汇总差异询问维护者；发布被拒不重试（回退 tag + 登记 `docs/release-pending.md`） |
 | 发布 | `0.9.0` 由 GitHub Actions 经 OIDC trusted publishing 自动发布，带 SLSA provenance；npm 与 npmmirror 均为 `latest = 0.9.0` |
 
 ## G. 待办（用户侧 / 环境侧）

@@ -99,11 +99,10 @@ task_board_list --query DSH                 # 查看周检任务与下次运行�
 | 设置卡后端 | `GET /api/dsh-matlab-mcp/status` → **200**；二进制 `0.14.0`、工具箱、两个技能仓、Simulink `tools.json` 全部 `present: true`；`matlab.root = D:\MATLAB\2025b` |
 | 诊断路由 | `GET .../diagnostics` → 405（该路由仅 POST，符合预期） |
 
-原始输出（Simulink 冒烟）：
+原始输出（Simulink 冒烟：一阶惯性 `1/(s+1)`，5 s，ode45）：
 
 ```
-FAILED: matlab error: SIM_FINAL=错误使用 fprintf
-无法从 Simulink.SimulationData.Dataset 转换为 double。
+FAILED: matlab error: 未识别类 'Simulink.SimulationData.Signal' 的方法、属性或字段 'Data'。
  
 
 ```

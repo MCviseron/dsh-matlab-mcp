@@ -7,6 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 变更
+
+- **设置页所有布尔项由勾选框改为开关**（`role="switch"` + `aria-checked`，整块可点、禁用态半透明）：覆盖 `enabled` / `announceToAgent` / `simulinkTools` / `skillsEnabled` / `allowMirrorDownload` / `telemetry` / `shutdownMatlabOnUnload` 共 7 项。实现只改卡片内部的 `BooleanField`，调用点与设置读写逻辑未变。
+
 ### 文档
 
 - 新增 [`docs/sessions.md`](docs/sessions.md)：**多会话与并行仿真的行为说明** —— 一个 DSH 进程 = 一个 MCP server = 一个 MATLAB（附代码位置证据）；「会话」指 MATLAB 共享会话而非 DSH 对话；四种组合（同一 DSH 内多对话 / 双实例 × new / auto / existing）的干扰矩阵；「打架」的具体表现；想并行两个仿真的推荐做法；并诚实标注未实测项与「每对话一个 MATLAB」所需的上游改动。README 特性表增加对应一行。

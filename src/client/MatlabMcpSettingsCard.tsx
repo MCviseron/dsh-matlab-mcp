@@ -304,19 +304,56 @@ function SelectField(props: { label: string; hint: string; value: string; disabl
   )
 }
 
+/**
+ * Boolean settings render as a **switch**, not a checkbox: the track is a single
+ * click target with `role="switch"` + `aria-checked`, which is what the rest of
+ * the DSH settings UI uses for on/off preferences.
+ */
 function BooleanField(props: { label: string; hint: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
+  const trackStyle: CSSProperties = {
+    appearance: 'none',
+    font: 'inherit',
+    position: 'relative',
+    flex: '0 0 auto',
+    width: 36,
+    height: 20,
+    padding: 0,
+    border: '1px solid ' + (props.value ? 'transparent' : 'var(--dsw-alias-border-l2)'),
+    borderRadius: 999,
+    background: props.value ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-bg-layer-2)',
+    cursor: props.disabled ? 'default' : 'pointer',
+    opacity: props.disabled ? 0.4 : 1,
+    transition: 'background 120ms ease, border-color 120ms ease',
+  }
+  const thumbStyle: CSSProperties = {
+    position: 'absolute',
+    top: 2,
+    left: props.value ? 18 : 2,
+    width: 14,
+    height: 14,
+    borderRadius: '50%',
+    background: '#fff',
+    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
+    transition: 'left 120ms ease',
+  }
   return (
     <Field label={props.label} hint={props.hint}>
-      <label style={{ display: 'flex', alignItems: 'center', gap: 8, color: 'var(--dsw-alias-label-primary)', fontSize: 13, lineHeight: 1.5 }}>
-        <input
-          type="checkbox"
-          checked={props.value}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={props.value}
+          aria-label={props.label}
           disabled={props.disabled}
-          onChange={(event) => { props.onChange(event.target.checked) }}
-          style={{ accentColor: 'var(--dsw-alias-brand-primary)' }}
-        />
-        {props.value ? '开 / on' : '关 / off'}
-      </label>
+          onClick={() => { props.onChange(!props.value) }}
+          style={trackStyle}
+        >
+          <span aria-hidden="true" style={thumbStyle} />
+        </button>
+        <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: 1.5 }}>
+          {props.value ? '开 / on' : '关 / off'}
+        </span>
+      </div>
     </Field>
   )
 }

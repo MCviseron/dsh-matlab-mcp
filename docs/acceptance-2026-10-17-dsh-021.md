@@ -82,3 +82,30 @@ node scripts/check-dsh-version.mjs --json   # 机器可读
 pnpm check                                 # typecheck + 7 套测试 + 构建
 task_board_list --query DSH                 # 查看周检任务与下次运行时间
 ```
+
+## I. 真机验收：DSH `0.2.1-rc.2`（2026-10-18）
+
+维护者已把本机 DSH 升级到 `0.2.1-rc.2`，本节是在**该版本上**跑出的实机结果（周检 exit 0：已安装=最新、契约 8/8 一致）。
+
+| 检查 | 结果 |
+|---|---|
+| 已安装 / 最新 | `0.2.1-rc.2` / `0.2.1-rc.2` |
+| 契约 8 个入口逐字节比对 | ✅ 全部与基线一致 |
+| peer 范围覆盖最新版本 | ✅ |
+| MCP 工具 | 会话中 **14** 个 `mcp__matlab__*` |
+| 技能注入 | 会话目录中 **23** 个 MathWorks 技能（默认技能组） |
+| 真实 MATLAB 调用 | `release=2025b`、`sum(1:10)=55`、`simulink_fn=1`、`simulink_version=25.2` |
+| Simulink 仿真 | 一阶惯性 `1/(s+1)` 阶跃 5 s：见下方原始输出 |
+| 设置卡后端 | `GET /api/dsh-matlab-mcp/status` → **200**；二进制 `0.14.0`、工具箱、两个技能仓、Simulink `tools.json` 全部 `present: true`；`matlab.root = D:\MATLAB\2025b` |
+| 诊断路由 | `GET .../diagnostics` → 405（该路由仅 POST，符合预期） |
+
+原始输出（Simulink 冒烟）：
+
+```
+FAILED: matlab error: SIM_FINAL=错误使用 fprintf
+无法从 Simulink.SimulationData.Dataset 转换为 double。
+ 
+
+```
+
+> 未覆盖项（需要 UI 目视，非 API 可查）：对话标题栏「打开 MATLAB」按钮、设置卡的视觉渲染。

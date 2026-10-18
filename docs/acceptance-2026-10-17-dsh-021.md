@@ -85,7 +85,7 @@ task_board_list --query DSH                 # 查看周检任务与下次运行�
 
 ## I. 真机验收：DSH `0.2.1-rc.2`（2026-10-18）
 
-维护者已把本机 DSH 升级到 `0.2.1-rc.2`，本节是在**该版本上**跑出的实机结果（周检 exit 0：已安装=最新、契约 8/8 一致）。
+维护者已把本机 DSH 升级到 `0.2.1-rc.2`，本节是在**该版本上**跑出的实机结果。同日周检（`scripts/check-dsh-version.mjs`）返回 **exit 0**：已安装=最新、契约 8/8 逐字节一致、peer 范围已覆盖。
 
 | 检查 | 结果 |
 |---|---|
@@ -95,16 +95,26 @@ task_board_list --query DSH                 # 查看周检任务与下次运行�
 | MCP 工具 | 会话中 **14** 个 `mcp__matlab__*` |
 | 技能注入 | 会话目录中 **23** 个 MathWorks 技能（默认技能组） |
 | 真实 MATLAB 调用 | `release=2025b`、`sum(1:10)=55`、`simulink_fn=1`、`simulink_version=25.2` |
-| Simulink 仿真 | 一阶惯性 `1/(s+1)` 阶跃 5 s：见下方原始输出 |
+| Simulink 仿真 | 一阶惯性 `1/(s+1)`、Step 在 t=1 s、StopTime=5 s、ode45 → **最后采样 t=5.0000 s，仿真值 0.9817，解析 1−e⁻⁴=0.9817，误差 2.41e-10**（52 个采样点） |
 | 设置卡后端 | `GET /api/dsh-matlab-mcp/status` → **200**；二进制 `0.14.0`、工具箱、两个技能仓、Simulink `tools.json` 全部 `present: true`；`matlab.root = D:\MATLAB\2025b` |
 | 诊断路由 | `GET .../diagnostics` → 405（该路由仅 POST，符合预期） |
 
-原始输出（Simulink 冒烟：一阶惯性 `1/(s+1)`，5 s，ode45，`To Workspace` 取终值）：
+原始输出（MATLAB + Simulink）：
 
 ```
-FAILED: matlab error: end 运算符必须用在数组索引表达式中。
- 
-
+release=2025b
+sum1to10=55
+simulink_fn=1
+simulink_version=25.2
+CLASS_YOUT=Simulink.SimulationData.Dataset
+CLASS_EL=Simulink.SimulationData.Signal
+CLASS_TS=timeseries
+LAST_T=5.0000
+LAST_V=0.9817
+ANALYTIC_AT_T=0.9817
+ERR=2.41e-10
+SAMPLES=52
 ```
 
+> 取值路径是 `simOut.yout{1}.Values`（Dataset → Signal → timeseries）。`yout{1}.Data` 与 `yout(end)` 在 R2025b 上都不成立 —— 前两次报错是**我的取值写法**问题，仿真本身每次都跑通了。
 > 未覆盖项（需要 UI 目视，非 API 可查）：对话标题栏「打开 MATLAB」按钮、设置卡的视觉渲染。

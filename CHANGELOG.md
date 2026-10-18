@@ -9,7 +9,7 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ### 变更
 
-- **设置页所有布尔项由勾选框改为开关**（`role="switch"` + `aria-checked`，整块可点、禁用态半透明）：覆盖 `enabled` / `announceToAgent` / `simulinkTools` / `skillsEnabled` / `allowMirrorDownload` / `telemetry` / `shutdownMatlabOnUnload` 共 7 项。实现只改卡片内部的 `BooleanField`，调用点与设置读写逻辑未变。
+- **设置页布尔项改为官方同款开关**：逐字照抄 `@deepseek-ai/dsh-client-ui-primitives` 的 `Switch`（`lib/Switch.module.css` + `lib/types/Switch.js`）——36×20 轨道、`padding:2px`、16px 滑块 `translateX(16px)`、配色由 `[aria-checked]` 驱动（关：`--dsw-alias-border-l3` / 开：`--dsw-alias-brand-primary`）、禁用 `opacity:.5`、`focus-visible` 焦点环；行布局沿用官方 `settings-form`（标签左、开关右、提示在下）。覆盖 `enabled` / `announceToAgent` / `simulinkTools` / `skillsEnabled` / `allowMirrorDownload` / `telemetry` / `shutdownMatlabOnUnload` 共 7 项。未直接 `import` 官方包，因为 Web 壳只保证提供 `build.mjs` externals 里那些模块，require 失败会让整张设置卡挂掉。
 
 ### 文档
 

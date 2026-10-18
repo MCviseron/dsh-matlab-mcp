@@ -305,56 +305,74 @@ function SelectField(props: { label: string; hint: string; value: string; disabl
 }
 
 /**
- * Boolean settings render as a **switch**, not a checkbox: the track is a single
- * click target with `role="switch"` + `aria-checked`, which is what the rest of
- * the DSH settings UI uses for on/off preferences.
+ * Official-look switch for boolean settings.
+ *
+ * Markup and CSS mirror `@deepseek-ai/dsh-client-ui-primitives`'s `Switch`
+ * (`lib/Switch.module.css` + `lib/types/Switch.js`) verbatim, with the class
+ * names scoped to this plugin: 36x20 track, 2px padding, 16px thumb moved by
+ * `translateX(16px)`, colour driven by `[aria-checked]` so the visual state can
+ * never disagree with assistive technology. The row layout follows the official
+ * `settings-form/fields.module.css`: label on the left, control on the right,
+ * hint underneath.
+ *
+ * We replicate instead of importing because the web shell is only known to
+ * provide the modules listed in `build.mjs` externals; importing
+ * `@deepseek-ai/dsh-client-ui-primitives` is unverified and a failed require
+ * would take the whole settings card down.
  */
+const SWITCH_STYLE_ID = 'dsh-matlab-mcp-switch-styles'
+const SWITCH_CSS = [
+  '.dsh-matlab-mcp-switch{box-sizing:border-box;position:relative;flex:0 0 auto;width:36px;height:20px;padding:2px;border:0;border-radius:999px;corner-shape:round;background:var(--dsw-alias-border-l3);cursor:pointer}',
+  ".dsh-matlab-mcp-switch[aria-checked='true']{background:var(--dsw-alias-brand-primary)}",
+  '.dsh-matlab-mcp-switch:disabled{cursor:default;opacity:.5}',
+  '.dsh-matlab-mcp-switch:focus-visible{outline:var(--dsw-focus-ring-width) solid var(--dsw-focus-ring-color,var(--dsw-alias-state-business-primary));outline-offset:2px}',
+  '.dsh-matlab-mcp-switch-thumb{display:block;width:16px;height:16px;border-radius:50%;corner-shape:round;background:var(--dsw-alias-label-primary-foreground);transition:transform 120ms ease}',
+  ".dsh-matlab-mcp-switch[aria-checked='false'] .dsh-matlab-mcp-switch-thumb{background:var(--dsw-alias-switch-thumb)}",
+  ".dsh-matlab-mcp-switch[aria-checked='true'] .dsh-matlab-mcp-switch-thumb{transform:translateX(16px)}",
+].join('')
+
+/** Inject the switch CSS once per document; idempotent and SSR-safe. */
+function ensureSwitchStyles(): void {
+  if (typeof document === 'undefined') return
+  if (document.getElementById(SWITCH_STYLE_ID) !== null) return
+  const style = document.createElement('style')
+  style.id = SWITCH_STYLE_ID
+  style.textContent = SWITCH_CSS
+  document.head.appendChild(style)
+}
+
+const booleanRowStyle: CSSProperties = { display: 'flex', flexDirection: 'column', gap: 6, padding: '10px 0' }
+const booleanHeadStyle: CSSProperties = { display: 'flex', alignItems: 'center', gap: 8 }
+const booleanLabelStyle: CSSProperties = {
+  flex: 1,
+  minWidth: 0,
+  color: 'var(--dsw-alias-label-primary)',
+  fontSize: 13,
+  fontWeight: 500,
+  lineHeight: 1.5,
+}
+
 function BooleanField(props: { label: string; hint: string; value: boolean; disabled: boolean; onChange: (value: boolean) => void }) {
-  const trackStyle: CSSProperties = {
-    appearance: 'none',
-    font: 'inherit',
-    position: 'relative',
-    flex: '0 0 auto',
-    width: 36,
-    height: 20,
-    padding: 0,
-    border: '1px solid ' + (props.value ? 'transparent' : 'var(--dsw-alias-border-l2)'),
-    borderRadius: 999,
-    background: props.value ? 'var(--dsw-alias-brand-primary)' : 'var(--dsw-alias-bg-layer-2)',
-    cursor: props.disabled ? 'default' : 'pointer',
-    opacity: props.disabled ? 0.4 : 1,
-    transition: 'background 120ms ease, border-color 120ms ease',
-  }
-  const thumbStyle: CSSProperties = {
-    position: 'absolute',
-    top: 2,
-    left: props.value ? 18 : 2,
-    width: 14,
-    height: 14,
-    borderRadius: '50%',
-    background: '#fff',
-    boxShadow: '0 1px 2px rgba(0, 0, 0, 0.3)',
-    transition: 'left 120ms ease',
-  }
+  ensureSwitchStyles()
   return (
-    <Field label={props.label} hint={props.hint}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+    <div style={booleanRowStyle}>
+      <div style={booleanHeadStyle}>
+        <span style={booleanLabelStyle}>{props.label}</span>
         <button
           type="button"
           role="switch"
           aria-checked={props.value}
           aria-label={props.label}
+          title={props.label}
           disabled={props.disabled}
+          className="dsh-matlab-mcp-switch"
           onClick={() => { props.onChange(!props.value) }}
-          style={trackStyle}
         >
-          <span aria-hidden="true" style={thumbStyle} />
+          <span className="dsh-matlab-mcp-switch-thumb" aria-hidden="true" />
         </button>
-        <span style={{ color: 'var(--dsw-alias-label-secondary)', fontSize: 12, lineHeight: 1.5 }}>
-          {props.value ? '开 / on' : '关 / off'}
-        </span>
       </div>
-    </Field>
+      <span style={hintStyle}>{props.hint}</span>
+    </div>
   )
 }
 

@@ -7,17 +7,18 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.1] - 2026-10-18
+
 ### 变更
 
-- **设置页布尔项改为官方同款开关**：逐字照抄 `@deepseek-ai/dsh-client-ui-primitives` 的 `Switch`（`lib/Switch.module.css` + `lib/types/Switch.js`）——36×20 轨道、`padding:2px`、16px 滑块 `translateX(16px)`、配色由 `[aria-checked]` 驱动（关：`--dsw-alias-border-l3` / 开：`--dsw-alias-brand-primary`）、禁用 `opacity:.5`、`focus-visible` 焦点环；行布局沿用官方 `settings-form`（标签左、开关右、提示在下）。覆盖 `enabled` / `announceToAgent` / `simulinkTools` / `skillsEnabled` / `allowMirrorDownload` / `telemetry` / `shutdownMatlabOnUnload` 共 7 项。未直接 `import` 官方包，因为 Web 壳只保证提供 `build.mjs` externals 里那些模块，require 失败会让整张设置卡挂掉。
+- **设置页布尔项改为官方同款开关**：逐字照抄 `@deepseek-ai/dsh-client-ui-primitives` 的 `Switch`（`lib/Switch.module.css` + `lib/types/Switch.js`）——36×20 轨道、`padding:2px`、16px 滑块 `translateX(16px)`、配色由 `[aria-checked]` 驱动（关：`--dsw-alias-border-l3` / 开：`--dsw-alias-brand-primary`）、禁用 `opacity:.5`、`focus-visible` 焦点环；行布局沿用官方 `settings-form`（标签左、开关右、提示在下），并移除原「开/on、关/off」文案。覆盖 `enabled` / `announceToAgent` / `simulinkTools` / `skillsEnabled` / `allowMirrorDownload` / `telemetry` / `shutdownMatlabOnUnload` 共 7 项。未直接 `import` 官方包：Web 壳只保证提供 `build.mjs` externals 里的模块，require 失败会让整张设置卡挂掉。
+- 定时检测改用 **DSH 官方会话定时任务**（`schedule`，id `schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`，每周日 09:00 Asia/Shanghai，绑定维护者会话），并移除任务看板里的那张卡（第三方插件）。行为不变：契约未变+peer 未覆盖 → 自动放宽并发版；契约变化 → 汇总差异询问维护者；发布被拒不重试（回退 tag + 登记待补发）。
 
 ### 文档
 
 - 新增 [`docs/sessions.md`](docs/sessions.md)：**多会话与并行仿真的行为说明** —— 一个 DSH 进程 = 一个 MCP server = 一个 MATLAB（附代码位置证据）；「会话」指 MATLAB 共享会话而非 DSH 对话；四种组合（同一 DSH 内多对话 / 双实例 × new / auto / existing）的干扰矩阵；「打架」的具体表现；想并行两个仿真的推荐做法；并诚实标注未实测项与「每对话一个 MATLAB」所需的上游改动。README 特性表增加对应一行。
-
-### 变更
-
-- 定时检测改用 **DSH 官方会话定时任务**（`schedule`，id `schedule-67c40b87-cda4-4469-87e5-ee4b951b0523`，每周日 09:00 Asia/Shanghai，绑定维护者会话），并移除任务看板里的那张卡（第三方插件）。行为不变：契约未变+peer 未覆盖 → 自动放宽并发版；契约变化 → 汇总差异询问维护者；发布被拒不重试（回退 tag + 登记待补发）。
+- 中英 README 全量对齐（补齐目录、技能注入、使用示例、卸载四节与 A–I 验收表、开发文件地图；修正过时的 `downloadMirror` 默认值与测试套件数量），并修复英文排障表被空行截断的问题。
+- `docs/acceptance-2026-10-17-dsh-021.md` 增补 **§I 真机验收（DSH `0.2.1-rc.2`）**：14 个 MCP 工具、23 个 MathWorks 技能、`sum(1:10)=55`、Simulink 25.2、一阶惯性仿真终值 0.9817 与解析 1−e⁻⁴ 误差 2.4e-10、设置卡状态路由 200。
 
 ## [0.9.0] - 2026-10-17
 
@@ -231,7 +232,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...HEAD
+[0.9.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...v0.8.0
 [0.7.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.2...v0.7.3

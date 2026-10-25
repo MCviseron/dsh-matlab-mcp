@@ -1,10 +1,11 @@
 {
   "note": "本插件依赖的 DSH 宿主入口文件指纹。scripts/check-dsh-version.mjs 用它判断「我们调用的代码是否变化」。",
-  "verifiedOn": "0.2.1-rc.2",
-  "verifiedAt": "2026-10-17",
+  "verifiedOn": "0.2.1-rc.3",
+  "verifiedAt": "2026-10-25",
   "verifiedAgainst": [
-    "0.2.0-rc.2（逐字节相同）",
-    "0.2.1-rc.2"
+    "0.2.0-rc.2",
+    "0.2.1-rc.2",
+    "0.2.1-rc.3（8 个入口与 rc.2 逐字节相同）"
   ],
   "contract": {
     "dsh-mcp-client": {

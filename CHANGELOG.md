@@ -7,9 +7,16 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.2] - 2026-10-25
+
 ### 修复
 
 - `scripts/check-dsh-version.mjs` 的版本比较**忽略了 pre-release 后缀**：`0.2.1-rc.3` 与 `0.2.1-rc.2` 的三元组相同，于是被判定为「已是最新」，夜间版更新会被静默漏报（2026-10-25 周检发现）。现按 semver 规则比较：numeric 标识按数值、其余按字典序、正式版高于同三元组的任何预发布；`satisfiesCaret` 也改为基于该比较并带 `0.x` 的次版本上界，避免把 `0.2.1-alpha.9` 误判为被 `^0.2.1-rc.2` 覆盖。
+
+### 文档
+
+- **明确自动化发布策略**：会话定时任务（每周日 09:00）**允许自行 bump 版本、打 tag、推送并发版**；只有人类在对话中显式要求「不要发版」时才需要确认，而该约束**不适用于自动化任务**。写入 `docs/dsh-compat.md` §7 与 `docs/release.md`。
+- 兼容性基线推进到 **`0.2.1-rc.3`**：8 个宿主入口文件与 `0.2.1-rc.2` 逐字节相同，基线继续有效。
 
 ## [0.9.1] - 2026-10-18
 
@@ -236,7 +243,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...HEAD
+[0.9.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...v0.9.0
 [0.8.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.7.3...v0.8.0

@@ -7,6 +7,10 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 修复
+
+- `scripts/check-dsh-version.mjs` 的版本比较**忽略了 pre-release 后缀**：`0.2.1-rc.3` 与 `0.2.1-rc.2` 的三元组相同，于是被判定为「已是最新」，夜间版更新会被静默漏报（2026-10-25 周检发现）。现按 semver 规则比较：numeric 标识按数值、其余按字典序、正式版高于同三元组的任何预发布；`satisfiesCaret` 也改为基于该比较并带 `0.x` 的次版本上界，避免把 `0.2.1-alpha.9` 误判为被 `^0.2.1-rc.2` 覆盖。
+
 ## [0.9.1] - 2026-10-18
 
 ### 变更

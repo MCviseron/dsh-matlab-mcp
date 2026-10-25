@@ -47,26 +47,51 @@ const wantDownload = !has('no-download')
 const log = (line) => { if (!asJson) console.log(line) }
 const fail = (message) => { console.error((asJson ? JSON.stringify({ ok: false, error: message }) : '✗ ' + message)); process.exit(1) }
 
-/** Numeric triple of a version, ignoring any -rc/-alpha suffix. */
-function triple(version) {
-  const m = /^(\d+)\.(\d+)\.(\d+)/.exec(version ?? '')
-  return m === null ? undefined : [Number(m[1]), Number(m[2]), Number(m[3])]
+/** Semver parts: the numeric triple plus its pre-release identifiers. */
+function parts(version) {
+  const m = /^(\d+)\.(\d+)\.(\d+)(?:-([0-9A-Za-z.-]+))?(?:\+.*)?$/.exec(version ?? '')
+  if (m === null) return undefined
+  return { n: [Number(m[1]), Number(m[2]), Number(m[3])], pre: m[4] === undefined ? [] : m[4].split('.') }
 }
+
+/**
+ * Semver ordering **including pre-releases**: a release outranks any pre-release
+ * of the same triple, numeric identifiers compare numerically and the rest
+ * lexically. The feed ships nightlies (0.2.1-rc.2 -> 0.2.1-rc.3), so a
+ * triple-only comparison would claim "already newest" and hide real updates.
+ */
 function compare(a, b) {
-  const x = triple(a), y = triple(b)
+  const x = parts(a), y = parts(b)
   if (x === undefined || y === undefined) return 0
-  for (let i = 0; i < 3; i += 1) if (x[i] !== y[i]) return x[i] - y[i]
+  for (let i = 0; i < 3; i += 1) if (x.n[i] !== y.n[i]) return x.n[i] - y.n[i]
+  if (x.pre.length === 0 && y.pre.length === 0) return 0
+  if (x.pre.length === 0) return 1
+  if (y.pre.length === 0) return -1
+  for (let i = 0; i < Math.max(x.pre.length, y.pre.length); i += 1) {
+    const left = x.pre[i], right = y.pre[i]
+    if (left === undefined) return -1
+    if (right === undefined) return 1
+    const leftNumeric = /^\d+$/.test(left), rightNumeric = /^\d+$/.test(right)
+    if (leftNumeric && rightNumeric) {
+      if (Number(left) !== Number(right)) return Number(left) - Number(right)
+      continue
+    }
+    if (leftNumeric) return -1
+    if (rightNumeric) return 1
+    if (left !== right) return left < right ? -1 : 1
+  }
   return 0
 }
-/** Caret semantics are what every range in package.json uses; for 0.x a caret pins the minor. */
+
+/** `^x.y.z` semantics with pre-releases: >= the given version, < the next minor for 0.x. */
 function satisfiesCaret(range, version) {
-  for (const part of String(range).split('||').map((p) => p.trim())) {
-    const m = /^\^?(\d+)\.(\d+)\.(\d+)/.exec(part)
+  for (const part of String(range).split('||').map((piece) => piece.trim())) {
+    const m = /^\^?(\d+)\.(\d+)\.(\d+)(?:-[0-9A-Za-z.-]+)?/.exec(part)
     if (m === null) continue
-    const [, major, minor, patch] = m.map(Number)
-    const v = triple(version)
-    if (v === undefined) continue
-    if (v[0] === major && v[1] === minor && v[2] >= patch) return true
+    const base = m[0].replace(/^\^/, '')
+    const major = Number(m[1]), minor = Number(m[2])
+    const upper = major === 0 ? major + '.' + (minor + 1) + '.0' : (major + 1) + '.0.0'
+    if (compare(version, base) >= 0 && compare(version, upper) < 0) return true
   }
   return false
 }

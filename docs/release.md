@@ -101,6 +101,15 @@ npm 账号可能被临时冻结（例如安全事件后的 72 小时冻结期）
 
 判定方式：只有在**人类显式提出**发布约束时才暂停自动发版；自动化任务自身不受该约束影响。
 
+若某个定时任务的 prompt 仍写着「只本地提交 / 等确认」，用脚本补齐（幂等、自动备份）：
+
+```powershell
+node scripts/fix-schedule-autonomy.mjs            # 只审计
+node scripts/fix-schedule-autonomy.mjs --apply    # 写入 <DSH_HOME>\storages\schedule.json
+```
+
+写入后需**重启 DSH**，schedule 服务才会从磁盘重新加载。
+
 ## 产物与版本约定
 
 - **npm 版本 = git tag = `package.json` 版本**（CI 强制校验）

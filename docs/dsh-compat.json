@@ -1,17 +1,18 @@
 {
   "note": "本插件依赖的 DSH 宿主入口文件指纹。scripts/check-dsh-version.mjs 用它判断「我们调用的代码是否变化」。",
-  "verifiedOn": "0.2.1-rc.3",
-  "verifiedAt": "2026-10-25",
+  "verifiedOn": "0.2.1-rc.5",
+  "verifiedAt": "2026-11-01",
   "verifiedAgainst": [
     "0.2.0-rc.2",
     "0.2.1-rc.2",
-    "0.2.1-rc.3（8 个入口与 rc.2 逐字节相同）"
+    "0.2.1-rc.3（8 个入口与 rc.2 逐字节相同）",
+    "0.2.1-rc.5（仅 dsh-mcp-client 变：resources 能力守卫，已复核无影响）"
   ],
   "contract": {
     "dsh-mcp-client": {
       "file": "lib/index.js",
-      "sha256": "758d8fc473b700b5d351158d06ce9f9e92c16e8b25497b08bb7bd2122a87f5dd",
-      "bytes": 35041,
+      "sha256": "64dfc9127a47d9d453d72022b47d3b8d8a5c82cad756ac1114b09faf1a956120",
+      "bytes": 35189,
       "purpose": "MCP 服务器挂载器（我们 inline 的就是它）"
     },
     "dsh-client-ui-slots": {

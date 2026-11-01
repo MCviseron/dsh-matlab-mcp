@@ -7,6 +7,21 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.3] - 2026-11-01
+
+### 变更
+
+- **兼容性基线推进到 DSH `0.2.1-rc.5`**：8 个契约入口逐一重算 sha256，只有 `dsh-mcp-client` 变化（`+3 / -2` 行、单个 hunk）—— 给 `resources/list` / `resources/templates/list` 加了能力守卫（服务器未声明 `resources` 时返回空列表而非发请求）。本插件只走 `tools` 通道，从不调用 `resources/*`，无导出/Config 变化，因此**未改动任何功能代码**，只推进基线。peer 范围 `^0.2.1-rc.2` 已覆盖 rc.5。
+
+### 新增
+
+- `scripts/fix-schedule-autonomy.mjs`：给周检类定时任务补「自动化任务可自行发版」的统一规则段。幂等（多指纹识别已有规则）、写前备份、`JSON.parse` 自校验 + 临时文件 rename 原子替换；支持 `--apply` / `--match <关键词>` / `--all-tasks` / `--store <路径>`。背景：`schedule_*` 工具族在部分构建下会被 Auto review 的 schema 缺陷拦截，且这些任务历史上按「人类对话」的约束写成了「只本地提交、等确认」，导致周检只改不发。
+
+### 文档
+
+- 新增 [`docs/automation-prompt.md`](docs/automation-prompt.md)：周检定时任务的完整提示词存档（含「自动化任务允许自行 bump/tag/发版，人类对话中的约束不适用」）。
+- [`docs/release.md`](docs/release.md) 新增「自动化发布 vs 对话中发布」对照表与脚本用法；[`docs/dsh-compat.md`](docs/dsh-compat.md) 记录 rc.3 → rc.5 的复核结论。
+
 ## [0.9.2] - 2026-10-25
 
 ### 修复
@@ -243,7 +258,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.3...HEAD
+[0.9.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...v0.9.1
 [0.9.0]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.8.0...v0.9.0

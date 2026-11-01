@@ -78,6 +78,20 @@ node scripts/check-dsh-version.mjs
 5. **验收**：`pnpm check` + 宿主内冒烟（`import` 插件 bundle、工具数、技能数、按钮、设置卡、Simulink 仿真）；
 6. **发版**：`npm version` → 推 tag → CI 自动发布（trusted publishing + provenance）。
 
+### 0.2.1-rc.3 → 0.2.1-rc.5（2026-11-01 复核）
+
+8 个入口里 **只有 `dsh-mcp-client` 变化**：`+3 / -2` 行、单个 hunk，位于 `startConnection()` 的 resources 处理器。
+
+```diff
+-case "resources/list": return await generation.listResources(...)
++const listable = generation.getServerCapabilities()?.resources !== void 0;
++case "resources/list": return listable ? await generation.listResources(...) : { resources: [] };
+```
+
+含义：服务器未声明 `resources` 能力时，不再向它发 `resources/list` / `resources/templates/list`，直接返回空结果。
+
+**对本插件无影响**：宿主侧只使用 `tools` 通道（`toolsCtx.plugin(mcpClient, clientConfigFor(...))` → `mcp__matlab__*`），从不调用 `resources/*`；无导出增减、无 Config 字段变化、`serverName`/`reconnect` 语义未变。因此**无需改功能代码**，仅把基线推进到 rc.5。
+
 ## 6. 真机验收清单（升级 DSH 后）
 
 - [ ] 启动日志无 `failed to import` / `failed to activate`

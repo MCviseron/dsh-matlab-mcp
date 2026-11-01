@@ -7,6 +7,11 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+### 修复
+
+- **技能目录静默丢失 12 个技能**：`parseFrontmatter` 只认单行标量，遇到 YAML 块标量（`description: >` / `|`，含 `>-` 之类的指示符）就把该键当作空值跳过、并丢弃缩进续行，于是 `description` 为 `undefined`，`listToolkitSkills` 按「描述必须非空」把整个技能滤掉。MathWorks 的 `matlab-write-tests`、`matlab-run-tests`、`matlab-use-package-manager`、`create-sdi-run` 等 12 个技能正好用折叠写法，导致技能目录只注册 24 / 36（旧文档里写的「32」也是这么来的）。现按 YAML 规则折叠块标量：`>` 把换行折成空格（空行转换行）、`|` 保留换行，并接受 chomping/indent 指示符。真机复核：默认 6 组现在 36 个技能全部可发现（matlab 22 + simulink 14），新增的正是此前丢失的 12 个。
+- 验收清单同步修正：技能数为 36；Simulink 一阶惯性验收必须显式 `Time=0`（Step 默认在 t=1 阶跃，否则终值是 1−e⁻⁴）。
+
 ## [0.9.3] - 2026-11-01
 
 ### 变更

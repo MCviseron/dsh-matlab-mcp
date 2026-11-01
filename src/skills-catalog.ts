@@ -54,16 +54,42 @@ export function parseFrontmatter(text: string): { data: SkillFrontmatter; body: 
   if (end < 0) return { data: {}, body: normalized }
   const block = normalized.slice(normalized.indexOf('\n', 3) + 1, end)
   const body = normalized.slice(normalized.indexOf('\n', end + 1) + 1)
+  const lines = block.split(/\r?\n/)
   const data: Record<string, string> = {}
-  for (const rawLine of block.split(/\r?\n/)) {
+  for (let index = 0; index < lines.length; index += 1) {
+    const rawLine = lines[index]!
     if (/^\s/.test(rawLine)) continue // nested block (metadata:) — not needed
     const match = /^([A-Za-z][\w-]*):\s*(.*)$/.exec(rawLine)
     if (match === null) continue
     const key = match[1]!
-    let value = match[2]!.trim()
-    if (value === '' || value === '|' || value === '>') continue
-    value = value.replace(/^["']/, '').replace(/["']$/, '')
-    data[key] = value
+    const inline = match[2]!.trim()
+    // YAML block scalar (`|`, `>`, optionally with a chomping/indent indicator): the
+    // value is the indented lines that follow. Real MathWorks manifests ship
+    // `description: >`, so treating that key as empty used to drop the skill entirely.
+    if (/^[|>][+-]?\d*$/.test(inline)) {
+      const collected: string[] = []
+      let cursor = index + 1
+      for (; cursor < lines.length; cursor += 1) {
+        const line = lines[cursor]!
+        if (line.trim() === '') { collected.push(''); continue }
+        if (!/^\s/.test(line)) break
+        collected.push(line.trim())
+      }
+      index = cursor - 1
+      while (collected.length > 0 && collected[collected.length - 1] === '') collected.pop()
+      // `>` folds a newline into a space (a blank line becomes a break); `|` keeps them.
+      const value = inline.startsWith('>')
+        ? collected.reduce<string>((acc, line) => {
+            if (line === '') return acc + '\n'
+            if (acc === '' || acc.endsWith('\n')) return acc + line
+            return acc + ' ' + line
+          }, '')
+        : collected.join('\n')
+      if (value.trim() !== '') data[key] = value.trim()
+      continue
+    }
+    if (inline === '') continue
+    data[key] = inline.replace(/^["']/, '').replace(/["']$/, '')
   }
   return {
     data: {

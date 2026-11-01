@@ -48,6 +48,16 @@ check('nested metadata is not mis-parsed as a scalar', parsed.data.version, unde
 check('body keeps the content after the fence', parsed.body.trim().startsWith('# Debug'), true)
 check('a file without frontmatter is all body', parseFrontmatter('# plain').body, '# plain')
 
+// Real MathWorks manifests use YAML block scalars; before this was handled the
+// description came back undefined and the whole skill was dropped by discovery.
+const folded = parseFrontmatter(['---', 'name: matlab-write-tests', 'description: >', '  Generate and structure MATLAB unit tests', '  using matlab.unittest.', 'license: https://example.test/l', 'metadata:', '  version: "1.0"', '---', 'body'].join('\n'))
+check('folded block scalar keeps the whole block scalar', folded.data.description, 'Generate and structure MATLAB unit tests using matlab.unittest.')
+check('nested metadata is still ignored after a block scalar', folded.data.version, undefined)
+const literal = parseFrontmatter(['---', 'name: x-y', 'description: |-', '  line one', '  line two', '---', 'b'].join('\n'))
+check('literal block scalar keeps newlines', literal.data.description, 'line one\nline two')
+const foldedStrip = parseFrontmatter(['---', 'name: x-y', 'description: >-', '  folded line', '---', 'b'].join('\n'))
+check('chomping indicator is accepted', foldedStrip.data.description, 'folded line')
+
 check('kebab names are accepted', isKebabSkillName('matlab-debug-code'), true)
 check('camelCase names are rejected', isKebabSkillName('matlabDebugCode'), false)
 check('underscores are rejected', isKebabSkillName('matlab_debug'), false)
@@ -68,11 +78,18 @@ writeFileSync(join(root, 'matlab-core', 'NotKebab', 'SKILL.md'), '---\nname: Not
 
 const all = listToolkitSkills(root, 'matlab')
 check('only valid skills are discovered', all.map(entry => entry.name), ['matlab-review-code', 'matlab-rf-budget'])
+
 check('group filtering excludes other groups', listToolkitSkills(root, 'matlab', ['matlab-core']).map(entry => entry.name), ['matlab-review-code'])
 check('requires-products is read from the sibling manifest', listToolkitSkills(root, 'matlab', ['matlab-core'])[0]?.requiresProducts, ['MATLAB', 'Simulink Test'])
 check('a missing catalog is empty, not a throw', listToolkitSkills(join(root, 'nope'), 'simulink'), [])
 check('readSkillBody strips the frontmatter', readSkillBody(join(root, 'matlab-core', 'matlab-review-code', 'SKILL.md'))?.startsWith('# Debug'), true)
 check('readRequiresProducts tolerates a missing file', readRequiresProducts(join(root, 'nope.yaml')), [])
+
+// Regression for the dropped-toolkit-skills bug: a skill whose description is a
+// YAML block scalar must still be discovered (12 real toolkit skills were dropped).
+mkdirSync(join(root, 'matlab-core', 'matlab-write-tests'), { recursive: true })
+writeFileSync(join(root, 'matlab-core', 'matlab-write-tests', 'SKILL.md'), ['---', 'name: matlab-write-tests', 'description: >', '  Generate MATLAB unit tests.', '---', 'body'].join('\n'))
+check('a block-scalar description skill is discovered too', listToolkitSkills(root, 'matlab').map(entry => entry.name).includes('matlab-write-tests'), true)
 
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILED`)
 process.exit(failures === 0 ? 0 : 1)

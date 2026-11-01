@@ -96,10 +96,10 @@ node scripts/check-dsh-version.mjs
 
 - [ ] 启动日志无 `failed to import` / `failed to activate`
 - [ ] 会话里出现 **14** 个 `mcp__matlab__*` 工具
-- [ ] 技能目录出现 **32** 个 MathWorks 技能
+- [ ] 技能目录出现 **36** 个 MathWorks 技能（默认 6 组；可用 `skill` 工具逐个探测）
 - [ ] 对话标题栏有「打开 MATLAB」按钮，点击能起桌面
 - [ ] 设置 → MATLAB / Simulink MCP 卡片可打开、可「一键安装 / 修复」
-- [ ] `sum(1:10)` = 55；Simulink 一阶惯性仿真终值 ≈ 0.9933
+- [ ] `sum(1:10)` = 55；Simulink 一阶惯性仿真终值 ≈ 0.9933（**Step 模块的 Time 必须显式设为 0**，默认是 1，否则得到 1−e⁻⁴ = 0.9817）
 
 ## 7. 定时检测
 

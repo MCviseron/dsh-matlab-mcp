@@ -7,6 +7,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.4] - 2026-11-01
+
 ### 修复
 
 - **技能目录静默丢失 12 个技能**：`parseFrontmatter` 只认单行标量，遇到 YAML 块标量（`description: >` / `|`，含 `>-` 之类的指示符）就把该键当作空值跳过、并丢弃缩进续行，于是 `description` 为 `undefined`，`listToolkitSkills` 按「描述必须非空」把整个技能滤掉。MathWorks 的 `matlab-write-tests`、`matlab-run-tests`、`matlab-use-package-manager`、`create-sdi-run` 等 12 个技能正好用折叠写法，导致技能目录只注册 24 / 36（旧文档里写的「32」也是这么来的）。现按 YAML 规则折叠块标量：`>` 把换行折成空格（空行转换行）、`|` 保留换行，并接受 chomping/indent 指示符。真机复核：默认 6 组现在 36 个技能全部可发现（matlab 22 + simulink 14），新增的正是此前丢失的 12 个。
@@ -263,7 +265,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.3...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.4...HEAD
+[0.9.4]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...v0.9.2
 [0.9.1]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.0...v0.9.1

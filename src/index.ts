@@ -277,6 +277,8 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
   let syncedBySettings = false
   let mountError: string | undefined
   let mountCount = 0
+  /** Why the last attempt did nothing; a silent skip is undiagnosable from /status. */
+  let mountSkip: string | undefined
   let skillControl: SkillProviderControl | undefined
   let skillCount = 0
 
@@ -292,9 +294,13 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
         await dispose()
       }
       const active = resolved()
-      if (!active.enabled) return
+      if (!active.enabled) {
+        mountSkip = 'disabled-at-mount'
+        return
+      }
       const launch = buildLaunch(active)
       if (launch === undefined) {
+        mountSkip = 'not-provisioned'
         mountError = 'not-provisioned: ' + binaryPath()
         return
       }
@@ -304,10 +310,12 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
       // terminates the DSH host. Our own probe captures errors instead.
       const preflight = await probeServerVersion(launch.command)
       if (preflight.version === undefined) {
+        mountSkip = 'binary-unusable'
         mountError = 'binary-unusable: ' + (preflight.error ?? 'unknown')
         return
       }
       mountError = undefined
+      mountSkip = undefined
       mountCount += 1
       rememberSpawnBaseline()
       try {
@@ -425,7 +433,7 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
         return { results, ordered: orderBySpeed(results) }
       },
       reconnect: remountClient,
-      diagnostics: () => ({ mountCount, mountError: mountError ?? null, skillGroups: skillCount, binary: binaryPath() }),
+      diagnostics: () => ({ mountCount, mountError: mountError ?? null, mountSkip: mountSkip ?? null, skillGroups: skillCount, binary: binaryPath() }),
     }).map(route => ctx.webServer.register(route))
     return () => { for (const dispose of disposers) dispose() }
   }, 'matlab-mcp: host routes')
@@ -489,4 +497,18 @@ export function apply(ctx: Context, config?: MatlabMcpConfig): void {
   }, 'matlab-mcp: MATLAB cleanup')
 
   if (!syncedBySettings) sync()
+
+  // Late-config safety net. `apply` can run before the settings service hands over
+  // the user's config, and a mount skipped for that reason used to stay skipped
+  // until someone pressed reconnect (observed on 0.2.1-rc.5: mountCount 0 with an
+  // empty diagnostics trail). One bounded retry closes the race; it is idle when
+  // the first attempt already mounted or recorded an error.
+  const lateMountRetry = setTimeout(() => {
+    if (mountCount === 0 && mountError === undefined) {
+      mountSkip = 'startup-retry'
+      remountClient()
+    }
+  }, 2000)
+  lateMountRetry.unref?.()
+  ctx.effect(() => () => { clearTimeout(lateMountRetry) }, 'matlab-mcp: late mount retry')
 }

@@ -7,6 +7,12 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.5] - 2026-11-08
+
+### 修复
+
+- **启动时静默跳过 MCP 挂载**：`apply()` 可能早于设置服务交付用户配置，若此刻 `resolved().enabled` 还是初值，`remountClient()` 会走 `if (!active.enabled) return` 直接返回——既不记 `mountError` 也不重试，结果 `mountCount = 0`、会话里没有 `mcp__matlab__*` 工具，用户必须手动点「重连」才恢复（2026-11-08 周检在 0.2.1-rc.5 上实测：`mountCount 0`，`POST /reconnect` 后变 1）。修法：① 每个提前返回分支都记录 `mountSkip` 并通过 `/status` 暴露；② 启动后 2 秒做一次有界兜底重试（仅在 `mountCount === 0 && mountError === undefined` 时触发，正常情况不发生任何额外动作）。
+
 ## [0.9.4] - 2026-11-01
 
 ### 修复
@@ -265,7 +271,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.4...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.5...HEAD
+[0.9.5]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...v0.9.3
 [0.9.2]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.1...v0.9.2

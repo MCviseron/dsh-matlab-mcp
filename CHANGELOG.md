@@ -7,6 +7,13 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.6] - 2026-11-08
+
+### 变更
+
+- **兼容性基线推进到 DSH `0.2.2-rc.1`**：8 个契约入口逐一重算 sha256，3 个变化（`dsh-client-store` 去掉开发期 deep-freeze、`dsh-settings` 的 `configure(owner)` 改为按 Context 取 fiber、`dsh-client-locale` 新增 6 种语言与 `addLanguage`），逐个复核后确认**与本插件调用点无关**，未改动任何功能代码。
+- `peerDependencies` 的 4 个 `@deepseek-ai/dsh-client-*` 追加 `|| ^0.2.2-rc.1`（新 minor 的预发布不落在 `^0.2.1-rc.2` 的 tuple 内，显式声明更稳）。
+
 ## [0.9.5] - 2026-11-08
 
 ### 修复
@@ -271,7 +278,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.5...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.6...HEAD
+[0.9.6]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.4...v0.9.5
 [0.9.4]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.3...v0.9.4
 [0.9.3]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.2...v0.9.3

@@ -92,6 +92,20 @@ node scripts/check-dsh-version.mjs
 
 **对本插件无影响**：宿主侧只使用 `tools` 通道（`toolsCtx.plugin(mcpClient, clientConfigFor(...))` → `mcp__matlab__*`），从不调用 `resources/*`；无导出增减、无 Config 字段变化、`serverName`/`reconnect` 语义未变。因此**无需改功能代码**，仅把基线推进到 rc.5。
 
+### 0.2.1-rc.5 → 0.2.2-rc.1（2026-11-08 复核，跨小版本）
+
+8 个入口里 3 个变化，逐个读过之后的结论都是「与本插件调用点无关」：
+
+| 入口 | 变化 | 为什么不影响 |
+|---|---|---|
+| `dsh-client-store` | `-2 / +2`：删掉 immer 的 `freeze`，`devFreeze(value)` 直接 `return value` | 我们只用 `createSnapshotStore({status:…, writable:…})`，状态由 `set()` 整体替换，从不原地改；去掉开发期深冻结只影响「误改状态时是否会立刻报错」 |
+| `dsh-settings` | `-3 / +3`：`configure(presentation, owner = this.ctx)` 里改为取 `owner.ctx.fiber`；内部 `entry.fiber.config` → `entry.fiber.effectiveConfig` | 我们只调 `configure({ auto: false })`（不传 owner，走默认 Context）；`effectiveConfig` 是宿主内部读取路径，不是公开参数 |
+| `dsh-client-locale` | `+321 / -9`：新增 ja/es/fr/de/ru/pt 六种语言 + `locale.addLanguage({id,label,fallback:"en"})`，`register` 字典扩容 | `locale.register(NS,{zh,en})` 与 `locale.bind(NS)` 签名不变；新语言按 `fallback:"en"` 回落，我们的字典不必补齐 |
+
+`dsh-mcp-client`、`dsh-client-ui-slots`、`dsh-client-ui-settings`、`dsh-skill`、`dsh-client-ui-renderer` 逐字节相同。
+
+peer 范围追加 `|| ^0.2.2-rc.1`：0.2.2 是新 minor，按 npm 的严格 semver 语义，`0.2.2` 的预发布不落在 `^0.2.1-rc.2` 的比较器 tuple 内，显式追加更稳。
+
 ## 6. 真机验收清单（升级 DSH 后）
 
 - [ ] 启动日志无 `failed to import` / `failed to activate`

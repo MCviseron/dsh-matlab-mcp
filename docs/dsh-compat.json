@@ -1,37 +1,38 @@
 {
   "note": "本插件依赖的 DSH 宿主入口文件指纹。scripts/check-dsh-version.mjs 用它判断「我们调用的代码是否变化」。",
-  "verifiedOn": "0.2.2-rc.1",
-  "verifiedAt": "2026-11-08",
+  "verifiedOn": "0.2.2-rc.3",
+  "verifiedAt": "2026-11-15",
   "verifiedAgainst": [
     "0.2.0-rc.2",
     "0.2.1-rc.2",
     "0.2.1-rc.3（8 入口与 rc.2 逐字节相同）",
     "0.2.1-rc.5（仅 dsh-mcp-client：resources 能力守卫）",
-    "0.2.2-rc.1（dsh-client-store 去 dev 冻结 / dsh-settings owner 取 Context.fiber / dsh-client-locale 新增 6 语言，均与本插件调用点无关）"
+    "0.2.2-rc.1（dsh-client-store 去 dev 冻结 / dsh-settings owner 取 Context.fiber / dsh-client-locale 新增 6 语言，均与本插件调用点无关）",
+    "0.2.2-rc.3（mcp-client 仅新增可选 startupTimeoutMs/closeTimeoutMs/expandTemplates 与传输诊断重构；ui-slots 新增 hoc 槽类型；三个客户端包改为压缩构建但 inject/register/bind/renderSlot 接缝全在）"
   ],
   "contract": {
     "dsh-mcp-client": {
       "file": "lib/index.js",
-      "sha256": "64dfc9127a47d9d453d72022b47d3b8d8a5c82cad756ac1114b09faf1a956120",
-      "bytes": 35189,
+      "sha256": "879b2364e28563626697dd5e3dcf64dcae61dd215dc8f21b283cb7616a672bde",
+      "bytes": 59920,
       "purpose": "MCP 服务器挂载器（我们 inline 的就是它）"
     },
     "dsh-client-ui-slots": {
       "file": "lib/index.js",
-      "sha256": "57e1314e31a2015f30231e1e7596da658f1bb5cb64c103c4cf13381647412c99",
-      "bytes": 23461,
+      "sha256": "9a51dcdca222b68c4f5e4dbc816f6dde0ad99bdf5a3d504f4c7dfa3b4f222a3f",
+      "bytes": 24513,
       "purpose": "槽位注册（按钮 + 设置卡片入口）"
     },
     "dsh-client-locale": {
       "file": "lib/client.js",
-      "sha256": "769747aa79323075eba9545ff9982770c0163e0bba3cabcc49ff56581c0f3613",
-      "bytes": 74017,
+      "sha256": "c0b7e8edd44cfbe9f10d17ade90aee2a2d36e1e4f2c2cbb86a79660494673196",
+      "bytes": 50866,
       "purpose": "locale register/bind（所有文案）"
     },
     "dsh-client-ui-settings": {
       "file": "lib/client.js",
-      "sha256": "0555eec2df1ca392a1167e637f287ac9963dbd2b0a230089c2a41be079c490e3",
-      "bytes": 57756,
+      "sha256": "ebf76f56c79225a3bf484345305ee042f89ed13edd73cc76f8b16766628a17e6",
+      "bytes": 37025,
       "purpose": "设置页面板（设置卡片）"
     },
     "dsh-client-store": {
@@ -54,8 +55,8 @@
     },
     "dsh-client-ui-renderer": {
       "file": "lib/client.js",
-      "sha256": "dbdb3f26bfbc1d143bc8a0eed5982a2507c4f0cf8027e7c170f3bed3604be356",
-      "bytes": 78299,
+      "sha256": "6facb89754f0d21af91491a32646be87ff1b4a25891e44cce1732b02b0fe123b",
+      "bytes": 53746,
       "purpose": "槽位渲染器（按钮宿主）"
     }
   }

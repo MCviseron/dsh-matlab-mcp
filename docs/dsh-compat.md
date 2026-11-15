@@ -106,6 +106,20 @@ node scripts/check-dsh-version.mjs
 
 peer 范围追加 `|| ^0.2.2-rc.1`：0.2.2 是新 minor，按 npm 的严格 semver 语义，`0.2.2` 的预发布不落在 `^0.2.1-rc.2` 的比较器 tuple 内，显式追加更稳。
 
+### 0.2.2-rc.1 → 0.2.2-rc.3（2026-11-15 复核）
+
+5 个入口变化，复核结论全部「与调用点无关」：
+
+| 入口 | 变化 | 判断依据 |
+|---|---|---|
+| `dsh-mcp-client` | `35189 → 59920 B`，`+870/-202`，28 个 hunk：传输层重构、连接诊断保留 cause 链、新增 `McpLocalError` | Config 字段只**新增可选** `startupTimeoutMs` / `closeTimeoutMs` / `expandTemplates`，无删除、无重命名；我们传的 `serverName`/`command`/`args`/`cwd`/`env`/`toolCallTimeoutMs` 全部保持 |
+| `dsh-client-ui-slots` | `+26/-6`：新增 `hoc` 槽类型（单元格 = (key\|通配, id)，重复注册报错） | 我们只用 `settings.section` 与 `conversation.session.header.actions`（list/keyed），`inject`/`register` 计数不变 |
+| `dsh-client-locale` | `74017 → 50866 B`，改为单行压缩构建 | `register` / `bind` / `addLanguage` 符号仍在；`ctx.locale.register(NS,{zh,en})` 与 `bind(NS)` 用法不变 |
+| `dsh-client-ui-settings` | `57756 → 37025 B`，压缩构建 | `configure` / `register` / `presentations` 语义未变；我们只调 `configure({ auto: false })` |
+| `dsh-client-ui-renderer` | `78299 → 53746 B`，压缩构建 | `renderSlot` / `renderSlotChain` 仍在（符号被内联，字符串计数下降属压缩副作用） |
+
+压缩构建不影响契约判断，但**不能靠行数判断**——本轮改为按「导出符号 + 我们调用的接缝」比对。
+
 ## 6. 真机验收清单（升级 DSH 后）
 
 - [ ] 启动日志无 `failed to import` / `failed to activate`

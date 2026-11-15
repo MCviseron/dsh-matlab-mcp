@@ -9,6 +9,11 @@
 - 关键教训 1：检查器 `exit 0` 不等于运行时正常，**升级 DSH 必须跑 §6 真机验收**。
 - 关键教训 2：**exit 3 复核后若「无需改码」，推进基线 + 放宽 peer + 发补丁版，同样不需要问人**。
 
+## Host 读写提示词的已知缺陷（2026-11-15 实测）
+
+1. `automation_task_update` 在 0.2.1-rc.5 / 0.2.2-rc.1 上抛宿主错误 `service_error: (intermediate value).find is not a function`（`automation_task_list` 正常），因此**改 prompt 走文件**：读 `~/.dsh/storages/schedule.json` → 定位 `tables.tasks[].record.id` → 替换 `record.prompt` → 备份 + `JSON.parse` 自校验 + 临时文件 rename。
+2. 直接改文件**会被运行中的 Host 覆盖**（本轮开头的提醒仍是 3740 字符的旧版，说明 11-08 的写入被回滚）。所以改完**必须重启 DSH**，让 schedule 服务从磁盘重新加载；下一次提醒文本里应能看到本节内容。
+
 ---
 
 ```text

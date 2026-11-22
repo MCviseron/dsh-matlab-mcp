@@ -7,6 +7,19 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 ## [Unreleased]
 
+## [0.9.8] - 2026-11-22
+
+### 变更
+
+- **兼容性基线推进到 DSH `0.2.2-rc.5`**：8 个契约入口与 rc.3 **逐字节相同**（检查器逐包比对，`same=false` 数为 0），未改任何代码；peer `^0.2.2-rc.3` 已覆盖 rc.5（同 tuple，预发布序更高），无需追加。
+
+### 验收（DSH `0.2.2-rc.3` 真机，§6 全清单）
+
+- `/status` 200：`ready: true`、`mountError: null`、`mountCount: 2`、`mountSkip: null`（启动挂载修复持续有效）；`POST /settings/describe` 200。
+- 14 个 `mcp__matlab__*` 工具；**技能 36/36 逐个可加载**（此前只做抽样，本轮按 §6 要求全量探测）。
+- `sum(1:10) = 55`；MATLAB `2025b`、Simulink `25.2 (R2025b)`。
+- 一阶惯性（`1/(s+1)`、Step Time=0、StopTime 5、ode45）终值 `0.9932620528921874`，与 `1−e⁻⁵` 误差 `1.09e-10`。
+
 ## [0.9.7] - 2026-11-15
 
 ### 变更
@@ -292,7 +305,8 @@ project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 - 本仓库不携带任何 MathWorks 制品；二进制、`.mltbx` 与技能文本均在安装时从 MathWorks 官方 GitHub 下载且不修改。
 - **profile 联接**：DSH 通过 profile 的 `node_modules` 解析插件包。pnpm 对 `link:D:/...`（与 profile 不同盘符）会生成无效联接，导致重启后所有本地插件都不加载。请使用 `link:C:/Users/<user>/.dsh/<name>-plugin` 形态（该路径做 `mklink /J` 指向仓库），或在 `pnpm install` 后用 `mklink /J` 修复 `node_modules/<name>`。
 
-[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.7...HEAD
+[Unreleased]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.8...HEAD
+[0.9.8]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.7...v0.9.8
 [0.9.7]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.6...v0.9.7
 [0.9.6]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.5...v0.9.6
 [0.9.5]: https://github.com/MCviseron/dsh-matlab-mcp/compare/v0.9.4...v0.9.5

@@ -120,6 +120,14 @@ peer 范围追加 `|| ^0.2.2-rc.1`：0.2.2 是新 minor，按 npm 的严格 semv
 
 压缩构建不影响契约判断，但**不能靠行数判断**——本轮改为按「导出符号 + 我们调用的接缝」比对。
 
+### 0.2.2-rc.3 → 0.2.2-rc.5（2026-11-22）
+
+8 个入口**全部逐字节相同**（`check-dsh-version.mjs` 对 feed 版本逐包比对，`same=false` 为 0），因此不涉及代码复核，只推进 `verifiedOn`/`verifiedAt`。
+
+peer 无需追加：`^0.2.2-rc.3` 与 rc.5 属同一 tuple（0.2.2），预发布序 rc.5 > rc.3，npm 语义下即在范围内。
+
+真机验收（DSH `0.2.2-rc.3`）：`/status` 200 / `ready` / `mountCount=2` / `mountSkip=null`；`POST /settings/describe` 200；14 个工具；技能 **36/36** 逐个可加载；`sum(1:10)=55`；Simulink 一阶惯性终值 `0.9932620528921874`（`1−e⁻⁵`，误差 `1.09e-10`）。
+
 ## 6. 真机验收清单（升级 DSH 后）
 
 - [ ] 启动日志无 `failed to import` / `failed to activate`
